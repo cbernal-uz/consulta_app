@@ -17,6 +17,7 @@ export default function RootLayout() {
         <Tabs.Screen name="sin-cobrar" options={{ title: 'Sin cobrar' }} />
         <Tabs.Screen name="pacientes" options={{ title: 'Pacientes' }} />
         <Tabs.Screen name="facturas" options={{ title: 'Facturas' }} />
+        <Tabs.Screen name="trimestre" options={{ title: 'Trimestre' }} />
         <Tabs.Screen name="ajustes" options={{ title: 'Ajustes' }} />
         <Tabs.Screen name="nueva-cita" options={{ title: 'Nueva cita', href: null }} />
       </Tabs>

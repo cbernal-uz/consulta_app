@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { BorradorFactura, Cita, EstadoCita, Paciente, Terapeuta } from '../domain/types.ts';
 import { esCobrable, numeroFactura } from '../domain/reglas.ts';
+import type { FacturaEmitida } from '../domain/trimestre.ts';
 
 export function nuevoId(): string {
   const c = globalThis.crypto as Crypto | undefined;
@@ -144,4 +145,19 @@ export async function emitirFactura(db: SQLiteDatabase, b: BorradorFactura, paci
     await db.runAsync('UPDATE terapeuta SET siguiente_numero = siguiente_numero + 1 WHERE id = 1');
   });
   return numero;
+}
+
+export async function listarFacturasEmitidas(db: SQLiteDatabase, desde: string, hasta: string): Promise<FacturaEmitida[]> {
+  const filas = await db.getAllAsync<{
+    numero: string; fecha: string; receptor_json: string; base_centimos: number; retencion_pct: number;
+    retencion_centimos: number; total_centimos: number;
+  }>('SELECT * FROM facturas WHERE fecha BETWEEN ? AND ? ORDER BY numero', desde, hasta);
+  return filas.map(f => {
+    const receptor = JSON.parse(f.receptor_json) as { nombre: string; nif: string };
+    return {
+      numero: f.numero, fecha: f.fecha, clienteNombre: receptor.nombre, clienteNif: receptor.nif,
+      baseCentimos: f.base_centimos, retencionPct: f.retencion_pct, retencionCentimos: f.retencion_centimos,
+      totalCentimos: f.total_centimos,
+    };
+  });
 }
