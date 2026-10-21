@@ -35,6 +35,34 @@ export function totalesTrimestre(facturas: FacturaEmitida[]) {
   );
 }
 
+export interface ResumenCliente {
+  clienteNombre: string;
+  clienteNif: string;
+  facturas: FacturaEmitida[];
+  base: number;
+  retencion: number;
+  total: number;
+}
+
+/** Facturas del trimestre agrupadas por cliente, de mayor a menor importe. */
+export function porCliente(facturas: FacturaEmitida[]): ResumenCliente[] {
+  const grupos = new Map<string, FacturaEmitida[]>();
+  for (const f of facturas) {
+    const clave = f.clienteNif || f.clienteNombre;
+    grupos.set(clave, [...(grupos.get(clave) ?? []), f]);
+  }
+  return [...grupos.values()]
+    .map(fs => {
+      const t = totalesTrimestre(fs);
+      return {
+        clienteNombre: fs[0].clienteNombre, clienteNif: fs[0].clienteNif,
+        facturas: [...fs].sort((a, b) => a.numero.localeCompare(b.numero)),
+        base: t.base, retencion: t.retencion, total: t.total,
+      };
+    })
+    .sort((a, b) => b.total - a.total);
+}
+
 export interface IngresoSinFactura {
   paciente: string;
   sesiones: number;
@@ -56,6 +84,10 @@ export function csvLibroFacturas(facturas: FacturaEmitida[], sinFactura: Ingreso
   const t = totalesTrimestre(facturas);
   filas.push(['TOTAL', '', '', '', euros(t.base), '', '0,00', '', euros(t.retencion), euros(t.total)]);
   const lineas = [cabecera, ...filas];
+  lineas.push([], ['Resumen por cliente'], ['Cliente', 'NIF', 'Facturas', 'Base imponible', 'Retención', 'Total']);
+  for (const g of porCliente(facturas)) {
+    lineas.push([g.clienteNombre, g.clienteNif, g.facturas.map(f => f.numero).join(' '), euros(g.base), euros(g.retencion), euros(g.total)]);
+  }
   if (sinFactura.length > 0) {
     lineas.push([], ['Ingresos sin factura'], ['Paciente', 'Sesiones', 'Importe']);
     for (const i of sinFactura) lineas.push([i.paciente, String(i.sesiones), euros(i.importeCentimos)]);

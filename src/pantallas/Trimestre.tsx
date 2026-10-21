@@ -4,7 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { listarFacturasEmitidas, listarIngresosSinFactura } from '../db/repo';
 import { fechaCorta, formatoEuros, isoFecha } from '../domain/reglas';
-import { csvLibroFacturas, rangoTrimestre, totalesTrimestre, trimestreDe, type FacturaEmitida, type IngresoSinFactura } from '../domain/trimestre';
+import { csvLibroFacturas, porCliente, rangoTrimestre, totalesTrimestre, trimestreDe, type FacturaEmitida, type IngresoSinFactura } from '../domain/trimestre';
 import { Boton, Chip, Tarjeta, estilos } from '../ui/componentes';
 
 type T = 1 | 2 | 3 | 4;
@@ -16,6 +16,7 @@ export default function Trimestre() {
   const [trimestre, setTrimestre] = useState<T>(hoy.trimestre);
   const [facturas, setFacturas] = useState<FacturaEmitida[]>([]);
   const [sinFactura, setSinFactura] = useState<IngresoSinFactura[]>([]);
+  const [agrupar, setAgrupar] = useState(false);
 
   const cargar = useCallback(async () => {
     const { desde, hasta } = rangoTrimestre(anio, trimestre);
@@ -54,7 +55,23 @@ export default function Trimestre() {
         </Tarjeta>
       )}
       {facturas.length === 0 && <Text style={estilos.sub}>No hay facturas emitidas en este trimestre.</Text>}
-      {facturas.map(f => (
+      <View style={estilos.fila}>
+        <Chip texto="Por factura" activo={!agrupar} onPress={() => setAgrupar(false)} />
+        <Chip texto="Por paciente" activo={agrupar} onPress={() => setAgrupar(true)} />
+      </View>
+      {agrupar && porCliente(facturas).map(g => (
+        <Tarjeta key={g.clienteNif || g.clienteNombre}>
+          <View style={[estilos.fila, { justifyContent: 'space-between' }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={estilos.nombre}>{g.clienteNombre}</Text>
+              <Text style={estilos.meta}>NIF {g.clienteNif || '—'} · {g.facturas.length} facturas{g.retencion ? ` · retención ${formatoEuros(g.retencion)}` : ''}</Text>
+            </View>
+            <Text style={estilos.num}>{formatoEuros(g.total)}</Text>
+          </View>
+          {g.facturas.map(f => <Text key={f.numero} style={estilos.meta}>{f.numero} · {fechaCorta(f.fecha)} · {formatoEuros(f.totalCentimos)}</Text>)}
+        </Tarjeta>
+      ))}
+      {!agrupar && facturas.map(f => (
         <Tarjeta key={f.numero}>
           <View style={[estilos.fila, { justifyContent: 'space-between' }]}>
             <View style={{ flex: 1 }}>
