@@ -88,6 +88,8 @@ export const MIGRACIONES: string[] = [
   CREATE TRIGGER ${t}_pendiente AFTER UPDATE ON ${t} WHEN NEW.pendiente = OLD.pendiente AND NEW.pendiente <> 1
   BEGIN UPDATE ${t} SET pendiente = 1 WHERE rowid = NEW.rowid; END;`).join('')}
   `,
+  // Eventos publicados en Google Calendar desde este dispositivo. No se sincroniza: cada id es local del dispositivo.
+  `CREATE TABLE eventos_calendario (cita_id TEXT PRIMARY KEY, evento_id TEXT NOT NULL, firma TEXT NOT NULL);`,
 ];
 
 export async function migrar(db: SQLiteDatabase): Promise<void> {
