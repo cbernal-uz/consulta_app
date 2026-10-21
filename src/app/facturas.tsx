@@ -3,7 +3,7 @@ import { Alert, ScrollView, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { emitirFactura, leerTerapeuta, listarCitas, listarPacientes } from '../db/repo';
-import { borradorFactura, fechaCorta, formatoEuros, isoFecha, numeroFactura } from '../domain/reglas';
+import { borradorFactura, fechaCorta, formatoEuros, isoFecha, numeroFactura, serieParaFecha } from '../domain/reglas';
 import type { Cita, Paciente, Terapeuta } from '../domain/types';
 import { Boton, Chip, Tarjeta, estilos } from '../ui/componentes';
 
@@ -49,7 +49,7 @@ export default function Facturas() {
       <View style={estilos.fila}>{pacientes.map(p => <Chip key={p.id} texto={p.nombre} activo={p.id === pacienteId} onPress={() => setPacienteId(p.id)} />)}</View>
       {borrador && paciente && terapeuta && (
         <Tarjeta>
-          <Text style={estilos.nombre}>Factura {numeroFactura(terapeuta.serieFactura, terapeuta.siguienteNumero)} · {nombreMes(periodo)}</Text>
+          <Text style={estilos.nombre}>Factura {(() => { const s = serieParaFecha(terapeuta.serieFactura, terapeuta.siguienteNumero, isoFecha(new Date())); return numeroFactura(s.serie, s.siguiente); })()} · {nombreMes(periodo)}</Text>
           <Text style={estilos.meta}>Cliente: {paciente.fiscal.nombre} · {paciente.fiscal.nif || 'sin NIF'}</Text>
           {borrador.lineas.length === 0 && <Text style={estilos.sub}>No hay sesiones por facturar en este mes.</Text>}
           {borrador.lineas.map(l => (

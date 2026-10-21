@@ -23,7 +23,7 @@ export default function Ajustes() {
       <Campo etiqueta="Dirección de la consulta" value={t.direccion} onChangeText={direccion => cambiar({ direccion })} />
       <Campo etiqueta="Nº de colegiado" value={t.colegiado} onChangeText={colegiado => cambiar({ colegiado })} />
       <Campo etiqueta="Email" value={t.email} onChangeText={email => cambiar({ email })} keyboardType="email-address" autoCapitalize="none" />
-      <Campo etiqueta="Serie de facturas" value={t.serieFactura} onChangeText={serieFactura => cambiar({ serieFactura })} />
+      <Campo etiqueta="Serie de facturas (cambia sola al año nuevo y vuelve a empezar en 1)" value={t.serieFactura} onChangeText={serieFactura => cambiar({ serieFactura })} />
       <Campo etiqueta="Siguiente número de factura" value={String(t.siguienteNumero)} keyboardType="number-pad"
         onChangeText={v => cambiar({ siguienteNumero: Math.max(1, Number(v) || 1) })} />
       <Campo etiqueta="Retención a empresas (%)" value={String(t.retencionEmpresaPct)} keyboardType="decimal-pad"

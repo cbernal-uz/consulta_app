@@ -55,6 +55,12 @@ export function borradorFactura(paciente: Paciente, citas: Cita[], periodo: stri
   };
 }
 
+/** Al cambiar de año, la serie pasa a ser la del año nuevo y la numeración vuelve a empezar en 1. */
+export function serieParaFecha(serieActual: string, siguiente: number, fechaEmision: string): { serie: string; siguiente: number } {
+  const serieAnio = `${fechaEmision.slice(0, 4)}-`;
+  return serieActual === serieAnio ? { serie: serieActual, siguiente } : { serie: serieAnio, siguiente: 1 };
+}
+
 export function numeroFactura(serie: string, numero: number): string {
   return `${serie}${String(numero).padStart(3, '0')}`;
 }

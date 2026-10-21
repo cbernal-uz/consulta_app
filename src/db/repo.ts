@@ -1,6 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { BorradorFactura, Cita, EstadoCita, Paciente, Terapeuta } from '../domain/types.ts';
-import { esCobrable, numeroFactura } from '../domain/reglas.ts';
+import { esCobrable, numeroFactura, serieParaFecha } from '../domain/reglas.ts';
 import type { FacturaEmitida } from '../domain/trimestre.ts';
 
 export function nuevoId(): string {
@@ -124,12 +124,14 @@ export async function emitirFactura(db: SQLiteDatabase, b: BorradorFactura, paci
   let numero = '';
   await db.withTransactionAsync(async () => {
     const t = await leerTerapeuta(db);
-    numero = numeroFactura(t.serieFactura, t.siguienteNumero);
+    const hoy = ahora().slice(0, 10);
+    const { serie, siguiente } = serieParaFecha(t.serieFactura, t.siguienteNumero, hoy);
+    numero = numeroFactura(serie, siguiente);
     const id = nuevoId();
     await db.runAsync(
       `INSERT INTO facturas (id, numero, paciente_id, fecha, periodo, emisor_json, receptor_json, base_centimos,
          retencion_pct, retencion_centimos, total_centimos, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      id, numero, paciente.id, ahora().slice(0, 10), b.periodo,
+      id, numero, paciente.id, hoy, b.periodo,
       JSON.stringify({ nombre: t.nombre, nif: t.nif, direccion: t.direccion, colegiado: t.colegiado }),
       JSON.stringify({ ...paciente.fiscal, paciente: paciente.nombre, tipo: paciente.tipo }),
       b.baseCentimos, b.retencionPct, b.retencionCentimos, b.totalCentimos, ahora(),
@@ -142,7 +144,7 @@ export async function emitirFactura(db: SQLiteDatabase, b: BorradorFactura, paci
       );
       await db.runAsync('UPDATE citas SET factura_id = ?, updated_at = ? WHERE id = ?', id, ahora(), l.citaId);
     }
-    await db.runAsync('UPDATE terapeuta SET siguiente_numero = siguiente_numero + 1 WHERE id = 1');
+    await db.runAsync('UPDATE terapeuta SET serie_factura = ?, siguiente_numero = ? WHERE id = 1', serie, siguiente + 1);
   });
   return numero;
 }

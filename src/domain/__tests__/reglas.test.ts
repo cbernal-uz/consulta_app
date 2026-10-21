@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { borradorFactura, esCobrable, estadoCancelacion, lunesDe, numeroFactura } from '../reglas.ts';
+import { borradorFactura, esCobrable, estadoCancelacion, lunesDe, numeroFactura, serieParaFecha } from '../reglas.ts';
 import { enlaceWhatsApp, eventoIcs, textoAviso } from '../mensajes.ts';
 import type { Cita, Paciente, Terapeuta } from '../types.ts';
 
@@ -75,4 +75,9 @@ test('el .ics usa la hora de Madrid y la duración de la cita', () => {
   const ics = eventoIcs(cita({ fecha: '2026-10-28', hora: '09:30', duracionMin: 50 }), terapeuta, new Date('2026-10-21T20:00:00Z'));
   assert.match(ics, /DTSTART;TZID=Europe\/Madrid:20261028T093000/);
   assert.match(ics, /DTEND;TZID=Europe\/Madrid:20261028T102000/);
+});
+
+test('en enero de 2027 la serie pasa a 2027- y empieza en 1', () => {
+  assert.deepEqual(serieParaFecha('2026-', 48, '2026-12-31'), { serie: '2026-', siguiente: 48 });
+  assert.deepEqual(serieParaFecha('2026-', 48, '2027-01-02'), { serie: '2027-', siguiente: 1 });
 });
