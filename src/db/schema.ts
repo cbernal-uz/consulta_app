@@ -1,7 +1,10 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+/** En este orden se suben y se bajan, para respetar las referencias entre tablas. */
+export const TABLAS_SINCRONIZADAS = ['terapeuta', 'pacientes', 'facturas', 'citas', 'lineas_factura'] as const;
+
 // Cada tabla lleva id de texto y updated_at para poder sincronizar más adelante con Supabase.
-const MIGRACIONES: string[] = [
+export const MIGRACIONES: string[] = [
   `
   CREATE TABLE terapeuta (
     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -75,6 +78,16 @@ const MIGRACIONES: string[] = [
   );
   `,
   `ALTER TABLE pacientes ADD COLUMN sin_factura INTEGER NOT NULL DEFAULT 0;`,
+  // Sincronización: «pendiente» = 1 si la fila tiene cambios sin subir, -1 mientras se baja de Supabase.
+  `
+  ALTER TABLE terapeuta ADD COLUMN updated_at TEXT NOT NULL DEFAULT '';
+  ALTER TABLE lineas_factura ADD COLUMN updated_at TEXT NOT NULL DEFAULT '';
+  CREATE TABLE config (clave TEXT PRIMARY KEY, valor TEXT NOT NULL);
+  ${TABLAS_SINCRONIZADAS.map(t => `
+  ALTER TABLE ${t} ADD COLUMN pendiente INTEGER NOT NULL DEFAULT 1;
+  CREATE TRIGGER ${t}_pendiente AFTER UPDATE ON ${t} WHEN NEW.pendiente = OLD.pendiente AND NEW.pendiente <> 1
+  BEGIN UPDATE ${t} SET pendiente = 1 WHERE rowid = NEW.rowid; END;`).join('')}
+  `,
 ];
 
 export async function migrar(db: SQLiteDatabase): Promise<void> {

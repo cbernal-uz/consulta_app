@@ -58,4 +58,45 @@ Para actualizar, repite el paso 2 e instala el nuevo APK encima. Los datos se co
 
 ## Dónde se guardan los datos
 
-En la propia tablet, en una base de datos SQLite (`consulta.db`) dentro del espacio privado de la app. Ninguna otra app puede leerla y no sale del dispositivo. Por ahora no hay copia de seguridad ni sincronización: llegarán con Supabase en una próxima versión.
+En cada tablet, en una base de datos SQLite (`consulta.db`) dentro del espacio privado de la app. Si se configura Supabase, se copian también en vuestro proyecto de Supabase, que es lo que mantiene las dos tablets iguales.
+
+## Sincronizar las tablets con Supabase (gratis)
+
+1. Entra en https://supabase.com y crea un proyecto nuevo. En la región elige una de Europa, por ejemplo Frankfurt, y guarda la contraseña de la base de datos.
+2. En **SQL Editor**, pega el contenido de [`supabase/esquema.sql`](supabase/esquema.sql) y pulsa **Run**.
+3. En **Authentication › Users › Add user › Create new user**, crea la cuenta de la consulta con email y contraseña y marca *Auto Confirm User*.
+4. En **Authentication › Sign In / Providers**, desactiva *Allow new users to sign up* para que nadie más pueda crear cuentas.
+5. En **Project Settings › API**, copia la *Project URL* y la clave pública (*anon* o *publishable*). No uses la *service_role* ni la *secret*.
+6. En cada tablet: **Ajustes › Sincronización entre tablets**, rellena los cuatro campos y pulsa **Conectar y sincronizar**.
+
+A partir de ahí la app sincroniza sola cada dos minutos y al abrirla o cerrarla. Si la misma sesión se cambia en las dos tablets, se queda el cambio más reciente. Cada fila solo la puede ver la cuenta que la creó.
+
+- Emite las facturas siempre desde la misma tablet, o sincroniza justo antes, para que dos tablets sin conexión no den el mismo número a dos facturas.
+- El plan gratuito de Supabase pausa el proyecto tras una semana sin uso. Se reactiva desde el panel de Supabase.
+
+## Copia de seguridad en Google Drive
+
+**Ajustes › Copia de seguridad › Guardar copia en Google Drive** pide una contraseña, crea un archivo `Consulta copia AAAA-MM-DD HHMM.json` cifrado con AES-256 y abre el menú de compartir. Sin la contraseña la copia no se puede abrir, así que hay que guardarla en un sitio seguro. Ahí se elige Drive y la carpeta. La app avisa si pasa más de una semana sin copia.
+
+**Restaurar una copia** permite elegir el archivo, también desde Drive, y muestra cuántos pacientes, sesiones y facturas contiene antes de sustituir los datos. Lo restaurado se envía a la otra tablet en la siguiente sincronización.
+
+## Bloqueo
+
+Con **Ajustes › Bloqueo** activado (viene activado), la app pide huella, Face ID o el código de la tablet al abrirse y cuando vuelve tras más de un minuto en segundo plano. Si la tablet no tiene código ni huella, la app no se puede bloquear y lo avisa en Ajustes.
+
+## Copia automática diaria en Google Drive
+
+Una vez al día, la primera vez que se abre la app, se sube una copia cifrada a la carpeta «Consulta - copias de seguridad» de Google Drive. Se conservan las 30 últimas. Para activarla hay que crear una vez las credenciales en Google Cloud (gratis, unos 15 minutos):
+
+1. En https://console.cloud.google.com crea un proyecto llamado «Consulta».
+2. **APIs y servicios › Biblioteca**: activa **Google Drive API**.
+3. **Google Auth Platform**: tipo *Externo*, nombre «Consulta» y tu email. En **Acceso a datos** añade el permiso `.../auth/drive.file`. En **Público**, pulsa **Publicar app**. Si se deja «en pruebas», Google desconecta la cuenta cada 7 días. `drive.file` no es un permiso sensible, así que Google no pide revisión.
+4. **Clientes › Crear cliente › Android**:
+   - Paquete: `com.cbernal.consulta`.
+   - Huella SHA-1: la que muestra `npx eas-cli credentials -p android`, en *Keystore*.
+5. Solo para iPhone o iPad, **Crear cliente › iOS** con el bundle ID `com.cbernal.consulta`:
+   - Copia el *ID de cliente*, que se pega en Ajustes del iPhone o iPad.
+   - Copia también el *esquema de URL de iOS* y guárdalo para la compilación con `npx eas-cli env:create --name GOOGLE_IOS_URL_SCHEME --value com.googleusercontent.apps.…`.
+6. Compila de nuevo la app. En la tablet, ve a **Ajustes › Copia automática diaria**, pulsa **Conectar con Google**, marca la casilla y elige la contraseña de las copias.
+
+La contraseña de las copias automáticas se guarda en el almacén seguro del dispositivo (Keychain o Keystore). Apúntala también en otro sitio, porque hace falta para restaurar una copia en otra tablet.

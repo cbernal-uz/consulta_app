@@ -25,7 +25,14 @@
     },
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Consulta usa Face ID para proteger los datos de los pacientes."
+        }
+      ],
+      "expo-secure-store"
     ],
     "scheme": "consulta"
   }
