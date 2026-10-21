@@ -40,6 +40,17 @@
         }
       ]
     ],
-    "scheme": "consulta"
+    "scheme": "consulta",
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "b423a5e4-6bd0-49e6-b69b-57bce0d306b4"
+      }
+    },
+    "owner": "cbernal"
   }
 }
