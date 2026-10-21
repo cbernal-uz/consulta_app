@@ -5,6 +5,7 @@ App móvil (iPhone y Android) para gestionar las citas y la facturación de una 
 ## Qué hace esta versión
 
 - **Sesiones:** lista semanal de citas. Cada sesión se marca como programada, realizada, cancelada a tiempo, cancelada con menos de 24 h o no asistida, y como pagada o pendiente.
+- **Sin cobrar:** sesiones cobrables pendientes de pago, agrupadas por paciente, con su total y botón para marcarlas pagadas.
 - **Nueva cita:** crea la cita y abre WhatsApp o el email con el aviso ya escrito para el paciente.
 - **Pacientes:** alta y edición, con precio por sesión y datos de facturación (particular o empresa).
 - **Facturas:** reúne las sesiones cobrables y sin facturar de un paciente en un mes y emite la factura con número correlativo. Aplica la exención de IVA y, a empresas, la retención de IRPF.

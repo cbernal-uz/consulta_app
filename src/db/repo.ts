@@ -82,6 +82,14 @@ export async function listarCitas(db: SQLiteDatabase, desde: string, hasta: stri
   return filas.map(aCita);
 }
 
+/** Sesiones que se cobran y no están pagadas, de la más antigua a la más reciente. */
+export async function listarSinCobrar(db: SQLiteDatabase): Promise<Cita[]> {
+  const filas = await db.getAllAsync<FilaCita>(
+    `SELECT * FROM citas WHERE pagada = 0 AND estado IN ('realizada', 'cancelada_tarde', 'no_asistio') ORDER BY fecha, hora`,
+  );
+  return filas.map(aCita);
+}
+
 export async function crearCita(db: SQLiteDatabase, c: Omit<Cita, 'id'>): Promise<Cita> {
   const cita = { ...c, id: nuevoId() };
   await db.runAsync(
