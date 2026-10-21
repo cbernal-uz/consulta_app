@@ -35,11 +35,17 @@ export function totalesTrimestre(facturas: FacturaEmitida[]) {
   );
 }
 
+export interface IngresoSinFactura {
+  paciente: string;
+  sesiones: number;
+  importeCentimos: number;
+}
+
 const euros = (c: number) => (c / 100).toFixed(2).replace('.', ',');
 const celda = (v: string) => (/[;"\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
 
 /** CSV con separador «;» y decimales con coma, como lo abre Excel en español. */
-export function csvLibroFacturas(facturas: FacturaEmitida[]): string {
+export function csvLibroFacturas(facturas: FacturaEmitida[], sinFactura: IngresoSinFactura[] = []): string {
   const cabecera = ['Número', 'Fecha', 'Cliente', 'NIF', 'Base imponible', 'Tipo IVA', 'Cuota IVA', 'Retención %', 'Retención', 'Total'];
   const filas = [...facturas]
     .sort((a, b) => a.numero.localeCompare(b.numero))
@@ -49,5 +55,11 @@ export function csvLibroFacturas(facturas: FacturaEmitida[]): string {
     ]);
   const t = totalesTrimestre(facturas);
   filas.push(['TOTAL', '', '', '', euros(t.base), '', '0,00', '', euros(t.retencion), euros(t.total)]);
-  return [cabecera, ...filas].map(f => f.map(celda).join(';')).join('\r\n');
+  const lineas = [cabecera, ...filas];
+  if (sinFactura.length > 0) {
+    lineas.push([], ['Ingresos sin factura'], ['Paciente', 'Sesiones', 'Importe']);
+    for (const i of sinFactura) lineas.push([i.paciente, String(i.sesiones), euros(i.importeCentimos)]);
+    lineas.push(['TOTAL', String(sinFactura.reduce((s, i) => s + i.sesiones, 0)), euros(sinFactura.reduce((s, i) => s + i.importeCentimos, 0))]);
+  }
+  return lineas.map(f => f.map(celda).join(';')).join('\r\n');
 }

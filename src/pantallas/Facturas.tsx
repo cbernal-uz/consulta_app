@@ -51,7 +51,7 @@ export default function Facturas() {
         <Tarjeta>
           <Text style={estilos.nombre}>Factura {(() => { const s = serieParaFecha(terapeuta.serieFactura, terapeuta.siguienteNumero, isoFecha(new Date())); return numeroFactura(s.serie, s.siguiente); })()} · {nombreMes(periodo)}</Text>
           <Text style={estilos.meta}>Cliente: {paciente.fiscal.nombre} · {paciente.fiscal.nif || 'sin NIF'}</Text>
-          {borrador.lineas.length === 0 && <Text style={estilos.sub}>No hay sesiones por facturar en este mes.</Text>}
+          {borrador.lineas.length === 0 && <Text style={estilos.sub}>{paciente.sinFactura ? 'A este paciente no se le emite factura. Sus cobros aparecen en Trimestre como ingresos sin factura.' : 'No hay sesiones por facturar en este mes.'}</Text>}
           {borrador.lineas.map(l => (
             <View key={l.citaId} style={[estilos.fila, { justifyContent: 'space-between' }]}>
               <Text style={[estilos.meta, { flex: 1 }]}>{fechaCorta(l.fecha)} {l.hora} · {l.concepto}</Text>

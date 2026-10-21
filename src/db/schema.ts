@@ -74,6 +74,7 @@ const MIGRACIONES: string[] = [
     importe_centimos INTEGER NOT NULL
   );
   `,
+  `ALTER TABLE pacientes ADD COLUMN sin_factura INTEGER NOT NULL DEFAULT 0;`,
 ];
 
 export async function migrar(db: SQLiteDatabase): Promise<void> {

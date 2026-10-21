@@ -24,3 +24,8 @@ test('el CSV ordena por número, usa coma decimal y suma totales', () => {
   assert.match(csv[2], /^2026-012;2026-10-01;"Grupo Atenea; S\.L\.";B00000000;350,00;Exenta;0,00;15;52,50;297,50$/);
   assert.equal(csv[3], 'TOTAL;;;;590,00;;0,00;;52,50;537,50');
 });
+
+test('el CSV añade los ingresos sin factura con su total', () => {
+  const csv = csvLibroFacturas([f({})], [{ paciente: 'Pablo Navarro', sesiones: 3, importeCentimos: 18000 }]).split('\r\n');
+  assert.deepEqual(csv.slice(-4), ['Ingresos sin factura', 'Paciente;Sesiones;Importe', 'Pablo Navarro;3;180,00', 'TOTAL;3;180,00']);
+});

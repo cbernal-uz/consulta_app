@@ -40,6 +40,17 @@ export function Chip({ texto, activo, onPress, tono = 'acento' }: { texto: strin
   );
 }
 
+export function Casilla({ texto, marcada, onCambio }: { texto: string; marcada: boolean; onCambio: (v: boolean) => void }) {
+  return (
+    <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: marcada }} onPress={() => onCambio(!marcada)} style={[estilos.fila, { flexWrap: 'nowrap' }]}>
+      <View style={[estilos.casilla, marcada && { backgroundColor: colores.acento, borderColor: colores.acento }]}>
+        {marcada && <Text style={{ color: '#ffffff', fontWeight: '800', fontSize: 14 }}>✓</Text>}
+      </View>
+      <Text style={{ color: colores.tinta, flex: 1 }}>{texto}</Text>
+    </Pressable>
+  );
+}
+
 export function Campo({ etiqueta, ...props }: TextInputProps & { etiqueta: string }) {
   return (
     <View style={{ gap: 4, flex: 1 }}>
@@ -65,6 +76,7 @@ export const estilos = StyleSheet.create({
   boton: { backgroundColor: colores.acento, borderRadius: 8, paddingVertical: 11, paddingHorizontal: 16, alignItems: 'center' },
   botonSec: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colores.acento },
   botonTexto: { color: '#ffffff', fontWeight: '700' },
+  casilla: { width: 22, height: 22, borderRadius: 5, borderWidth: 2, borderColor: colores.suave, alignItems: 'center', justifyContent: 'center' },
   chip: { borderWidth: 1, borderColor: colores.linea, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   nombre: { fontWeight: '600', color: colores.tinta, fontSize: 15 },
   meta: { color: colores.suave, fontSize: 13 },

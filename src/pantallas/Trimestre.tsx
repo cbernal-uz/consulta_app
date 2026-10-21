@@ -2,9 +2,9 @@ import { useCallback, useState } from 'react';
 import { ScrollView, Share, Text, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { listarFacturasEmitidas } from '../db/repo';
+import { listarFacturasEmitidas, listarIngresosSinFactura } from '../db/repo';
 import { fechaCorta, formatoEuros, isoFecha } from '../domain/reglas';
-import { csvLibroFacturas, rangoTrimestre, totalesTrimestre, trimestreDe, type FacturaEmitida } from '../domain/trimestre';
+import { csvLibroFacturas, rangoTrimestre, totalesTrimestre, trimestreDe, type FacturaEmitida, type IngresoSinFactura } from '../domain/trimestre';
 import { Boton, Chip, Tarjeta, estilos } from '../ui/componentes';
 
 type T = 1 | 2 | 3 | 4;
@@ -15,17 +15,19 @@ export default function Trimestre() {
   const [anio, setAnio] = useState(hoy.anio);
   const [trimestre, setTrimestre] = useState<T>(hoy.trimestre);
   const [facturas, setFacturas] = useState<FacturaEmitida[]>([]);
+  const [sinFactura, setSinFactura] = useState<IngresoSinFactura[]>([]);
 
   const cargar = useCallback(async () => {
     const { desde, hasta } = rangoTrimestre(anio, trimestre);
     setFacturas(await listarFacturasEmitidas(db, desde, hasta));
+    setSinFactura(await listarIngresosSinFactura(db, desde, hasta));
   }, [db, anio, trimestre]);
   useFocusEffect(useCallback(() => { cargar(); }, [cargar]));
 
   const t = totalesTrimestre(facturas);
   const enviar = () => Share.share({
     title: `Facturas ${trimestre}T ${anio}`,
-    message: csvLibroFacturas(facturas),
+    message: csvLibroFacturas(facturas, sinFactura),
   });
 
   return (
@@ -43,7 +45,14 @@ export default function Trimestre() {
         <Text style={estilos.num}>Retenciones IRPF: {formatoEuros(t.retencion)}</Text>
         <Text style={[estilos.nombre, { fontSize: 17 }]}>Total facturado: {formatoEuros(t.total)}</Text>
       </Tarjeta>
-      <Boton titulo="Enviar a la gestoría" onPress={enviar} desactivado={facturas.length === 0} />
+      <Boton titulo="Enviar a la gestoría" onPress={enviar} desactivado={facturas.length === 0 && sinFactura.length === 0} />
+      {sinFactura.length > 0 && (
+        <Tarjeta>
+          <Text style={estilos.nombre}>Ingresos sin factura: {formatoEuros(sinFactura.reduce((s, i) => s + i.importeCentimos, 0))}</Text>
+          {sinFactura.map(i => <Text key={i.paciente} style={estilos.meta}>{i.paciente} · {i.sesiones} sesiones · {formatoEuros(i.importeCentimos)}</Text>)}
+          <Text style={estilos.meta}>Se incluyen en el archivo para el gestor.</Text>
+        </Tarjeta>
+      )}
       {facturas.length === 0 && <Text style={estilos.sub}>No hay facturas emitidas en este trimestre.</Text>}
       {facturas.map(f => (
         <Tarjeta key={f.numero}>

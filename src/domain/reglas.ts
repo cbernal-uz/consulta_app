@@ -31,7 +31,7 @@ export function conceptoLinea(estado: EstadoCita): string {
 /** Reúne las sesiones cobrables y sin facturar de un paciente en un mes (AAAA-MM). */
 export function borradorFactura(paciente: Paciente, citas: Cita[], periodo: string, terapeuta: Terapeuta): BorradorFactura {
   const lineas: LineaFactura[] = citas
-    .filter(c => c.pacienteId === paciente.id && c.fecha.startsWith(periodo) && esCobrable(c.estado) && !c.facturaId)
+    .filter(c => !paciente.sinFactura && c.pacienteId === paciente.id && c.fecha.startsWith(periodo) && esCobrable(c.estado) && !c.facturaId)
     .sort((a, b) => (a.fecha + a.hora).localeCompare(b.fecha + b.hora))
     .map(c => ({
       citaId: c.id,

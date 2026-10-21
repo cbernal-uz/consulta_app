@@ -1,7 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { BorradorFactura, Cita, EstadoCita, Paciente, Terapeuta } from '../domain/types.ts';
 import { esCobrable, numeroFactura, serieParaFecha } from '../domain/reglas.ts';
-import type { FacturaEmitida } from '../domain/trimestre.ts';
+import type { FacturaEmitida, IngresoSinFactura } from '../domain/trimestre.ts';
 
 export function nuevoId(): string {
   const c = globalThis.crypto as Crypto | undefined;
@@ -17,6 +17,7 @@ const ahora = () => new Date().toISOString();
 type FilaPaciente = {
   id: string; nombre: string; email: string; telefono: string; precio_centimos: number; tipo: Paciente['tipo'];
   fiscal_nombre: string; fiscal_nif: string; fiscal_direccion: string; activo: number;
+  sin_factura: number;
 };
 
 type FilaCita = {
@@ -28,6 +29,7 @@ type FilaCita = {
 const aPaciente = (f: FilaPaciente): Paciente => ({
   id: f.id, nombre: f.nombre, email: f.email, telefono: f.telefono, precioCentimos: f.precio_centimos, tipo: f.tipo,
   fiscal: { nombre: f.fiscal_nombre, nif: f.fiscal_nif, direccion: f.fiscal_direccion }, activo: f.activo === 1,
+  sinFactura: f.sin_factura === 1,
 });
 
 const aCita = (f: FilaCita): Cita => ({
@@ -60,14 +62,14 @@ export async function listarPacientes(db: SQLiteDatabase): Promise<Paciente[]> {
 
 export async function guardarPaciente(db: SQLiteDatabase, p: Paciente): Promise<void> {
   await db.runAsync(
-    `INSERT INTO pacientes (id, nombre, email, telefono, precio_centimos, tipo, fiscal_nombre, fiscal_nif, fiscal_direccion, activo, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO pacientes (id, nombre, email, telefono, precio_centimos, tipo, fiscal_nombre, fiscal_nif, fiscal_direccion, activo, sin_factura, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET nombre = excluded.nombre, email = excluded.email, telefono = excluded.telefono,
        precio_centimos = excluded.precio_centimos, tipo = excluded.tipo, fiscal_nombre = excluded.fiscal_nombre,
-       fiscal_nif = excluded.fiscal_nif, fiscal_direccion = excluded.fiscal_direccion, activo = excluded.activo,
+       fiscal_nif = excluded.fiscal_nif, fiscal_direccion = excluded.fiscal_direccion, activo = excluded.activo, sin_factura = excluded.sin_factura,
        updated_at = excluded.updated_at`,
     p.id, p.nombre, p.email, p.telefono, p.precioCentimos, p.tipo, p.fiscal.nombre || p.nombre, p.fiscal.nif,
-    p.fiscal.direccion, p.activo ? 1 : 0, ahora(),
+    p.fiscal.direccion, p.activo ? 1 : 0, p.sinFactura ? 1 : 0, ahora(),
   );
   // El nuevo precio se aplica a las citas que aún no se han hecho.
   await db.runAsync(
@@ -162,4 +164,16 @@ export async function listarFacturasEmitidas(db: SQLiteDatabase, desde: string, 
       totalCentimos: f.total_centimos,
     };
   });
+}
+
+/** Sesiones cobradas en el periodo de pacientes a los que no se emite factura, agrupadas por paciente. */
+export async function listarIngresosSinFactura(db: SQLiteDatabase, desde: string, hasta: string): Promise<IngresoSinFactura[]> {
+  return db.getAllAsync<IngresoSinFactura>(
+    `SELECT p.nombre AS paciente, COUNT(*) AS sesiones, SUM(c.precio_centimos) AS importeCentimos
+     FROM citas c JOIN pacientes p ON p.id = c.paciente_id
+     WHERE p.sin_factura = 1 AND c.pagada = 1 AND c.fecha BETWEEN ? AND ?
+       AND c.estado IN ('realizada', 'cancelada_tarde', 'no_asistio')
+     GROUP BY p.id ORDER BY p.nombre`,
+    desde, hasta,
+  );
 }

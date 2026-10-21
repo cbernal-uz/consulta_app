@@ -12,7 +12,7 @@ const terapeuta: Terapeuta = {
 
 const paciente = (tipo: Paciente['tipo']): Paciente => ({
   id: 'p1', nombre: 'Marta Gil', email: 'marta@example.com', telefono: '+34 600 111 222', precioCentimos: 7000,
-  tipo, fiscal: { nombre: 'Grupo Atenea S.L.', nif: 'B00000000', direccion: 'C/ Mayor 2' }, activo: true,
+  tipo, fiscal: { nombre: 'Grupo Atenea S.L.', nif: 'B00000000', direccion: 'C/ Mayor 2' }, activo: true, sinFactura: false,
 });
 
 const cita = (over: Partial<Cita>): Cita => ({
@@ -80,4 +80,9 @@ test('el .ics usa la hora de Madrid y la duración de la cita', () => {
 test('en enero de 2027 la serie pasa a 2027- y empieza en 1', () => {
   assert.deepEqual(serieParaFecha('2026-', 48, '2026-12-31'), { serie: '2026-', siguiente: 48 });
   assert.deepEqual(serieParaFecha('2026-', 48, '2027-01-02'), { serie: '2027-', siguiente: 1 });
+});
+
+test('a un paciente sin factura no se le genera borrador', () => {
+  const b = borradorFactura({ ...paciente('particular'), sinFactura: true }, [cita({})], '2026-10', terapeuta);
+  assert.equal(b.lineas.length, 0);
 });

@@ -5,11 +5,11 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { guardarPaciente, listarPacientes, nuevoId } from '../db/repo';
 import { formatoEuros } from '../domain/reglas';
 import type { Paciente } from '../domain/types';
-import { Boton, Campo, Chip, Tarjeta, estilos } from '../ui/componentes';
+import { Boton, Campo, Casilla, Chip, Tarjeta, estilos } from '../ui/componentes';
 
 const vacio = (): Paciente => ({
   id: nuevoId(), nombre: '', email: '', telefono: '', precioCentimos: 6000, tipo: 'particular',
-  fiscal: { nombre: '', nif: '', direccion: '' }, activo: true,
+  fiscal: { nombre: '', nif: '', direccion: '' }, activo: true, sinFactura: false,
 });
 
 export default function Pacientes() {
@@ -50,6 +50,8 @@ export default function Pacientes() {
         <Campo etiqueta="Nombre fiscal (vacío = el del paciente)" value={editando.fiscal.nombre} onChangeText={nombre => cambiarFiscal({ nombre })} />
         <Campo etiqueta="NIF / CIF" value={editando.fiscal.nif} onChangeText={nif => cambiarFiscal({ nif })} autoCapitalize="characters" />
         <Campo etiqueta="Dirección fiscal" value={editando.fiscal.direccion} onChangeText={direccion => cambiarFiscal({ direccion })} />
+        <Casilla texto="No se emite factura" marcada={editando.sinFactura} onCambio={sinFactura => cambiar({ sinFactura })} />
+        {editando.sinFactura && <Text style={estilos.meta}>No se le generan facturas. Sus sesiones cobradas aparecen en Pagos › Trimestre como ingresos sin factura, para que el gestor las declare.</Text>}
         <View style={estilos.fila}>
           <Chip texto={editando.activo ? 'Activo' : 'De baja'} activo onPress={() => cambiar({ activo: !editando.activo })} tono={editando.activo ? 'ok' : 'mal'} />
         </View>
@@ -69,7 +71,7 @@ export default function Pacientes() {
           <View style={[estilos.fila, { justifyContent: 'space-between' }]}>
             <View style={{ flex: 1 }}>
               <Text style={[estilos.nombre, !p.activo && { color: '#5d6b70' }]}>{p.nombre}{p.activo ? '' : ' (de baja)'}</Text>
-              <Text style={estilos.meta}>{formatoEuros(p.precioCentimos)} · {p.tipo === 'empresa' ? `Factura a ${p.fiscal.nombre}` : 'Particular'}</Text>
+              <Text style={estilos.meta}>{formatoEuros(p.precioCentimos)} · {p.sinFactura ? 'Sin factura' : p.tipo === 'empresa' ? `Factura a ${p.fiscal.nombre}` : 'Particular'}</Text>
             </View>
             <Chip texto="Editar" activo onPress={() => abrir(p)} />
           </View>

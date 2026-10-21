@@ -24,6 +24,8 @@ export interface Paciente {
   tipo: TipoCliente;
   fiscal: DatosFiscales;
   activo: boolean;
+  /** No se le emite factura; sus cobros constan en el trimestre como ingresos sin factura. */
+  sinFactura: boolean;
 }
 
 export interface Cita {
