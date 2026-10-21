@@ -4,16 +4,19 @@ import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { guardarTerapeuta, leerTerapeuta } from '../db/repo';
 import type { Terapeuta } from '../domain/types';
-import { Boton, Campo, Tarjeta, colores, estilos } from '../ui/componentes';
-import { leerConfig } from '../sync/config';
+import { Boton, Campo, Casilla, Tarjeta, colores, estilos } from '../ui/componentes';
+import { guardarConfig, leerConfig } from '../sync/config';
 import { conectar, desconectar, pendientesDeSubir, sincronizar, usuarioConectado } from '../sync/supabase';
 import { elegirCopia, guardarCopia, restaurarCopia } from '../sync/copia';
-import { resumenCopia } from '../domain/copia';
+import { resumenCopia, type Copia } from '../domain/copia';
+import { descifrarCopia, esCopiaCifrada, type CopiaCifrada } from '../domain/cifrado';
+import { PedirContrasena } from '../ui/Contrasena';
+import * as LocalAuthentication from 'expo-local-authentication';
 
 const cuando = (iso: string | null) => (iso ? new Date(iso).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : 'nunca');
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-type EstadoSync = { url: string; key: string; usuario: string | null; ultima: string | null; error: string | null; pendientes: number; ultimaCopia: string | null };
+type EstadoSync = { url: string; key: string; usuario: string | null; ultima: string | null; error: string | null; pendientes: number; ultimaCopia: string | null; bloqueo: boolean; seguridadDispositivo: boolean };
 
 export default function Ajustes() {
   const db = useSQLiteContext();
@@ -21,6 +24,8 @@ export default function Ajustes() {
   const [sync, setSync] = useState<EstadoSync | null>(null);
   const [acceso, setAcceso] = useState({ email: '', password: '' });
   const [ocupado, setOcupado] = useState(false);
+  // Qué se está pidiendo con la ventana de contraseña: crear una copia o abrir una cifrada.
+  const [pidiendo, setPidiendo] = useState<{ tipo: 'guardar' } | { tipo: 'abrir'; copia: CopiaCifrada } | null>(null);
 
   const cargarSync = useCallback(async () => {
     setSync({
@@ -28,6 +33,8 @@ export default function Ajustes() {
       usuario: await usuarioConectado(db), ultima: await leerConfig(db, 'ultima_sincronizacion'),
       error: await leerConfig(db, 'error_sincronizacion'), pendientes: await pendientesDeSubir(db),
       ultimaCopia: await leerConfig(db, 'ultima_copia'),
+      bloqueo: (await leerConfig(db, 'bloqueo')) !== '0',
+      seguridadDispositivo: (await LocalAuthentication.getEnrolledLevelAsync()) !== LocalAuthentication.SecurityLevel.NONE,
     });
   }, [db]);
   useFocusEffect(useCallback(() => { leerTerapeuta(db).then(setT); cargarSync(); }, [db, cargarSync]));
@@ -47,9 +54,7 @@ export default function Ajustes() {
     const r = await sincronizar(db);
     if (r) Alert.alert('Sincronizado', `${r.bajadas} cambios recibidos y ${r.subidas} enviados.`);
   });
-  const restaurar = () => tarea(async () => {
-    const copia = await elegirCopia();
-    if (!copia) return;
+  const confirmarRestaurar = (copia: Copia) => {
     Alert.alert('¿Restaurar esta copia?', `Copia del ${cuando(copia.creada)} con ${resumenCopia(copia)}. Se sustituirán todos los datos de esta tablet y se enviarán a la otra al sincronizar.`, [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Restaurar', style: 'destructive', onPress: () => tarea(async () => {
@@ -58,7 +63,20 @@ export default function Ajustes() {
         Alert.alert('Copia restaurada');
       }) },
     ]);
+  };
+  const restaurar = () => tarea(async () => {
+    const copia = await elegirCopia();
+    if (!copia) return;
+    if (esCopiaCifrada(copia)) setPidiendo({ tipo: 'abrir', copia });
+    else confirmarRestaurar(copia);
   });
+  const conContrasena = (contrasena: string) => {
+    const p = pidiendo;
+    setPidiendo(null);
+    if (p?.tipo === 'guardar') tarea(() => guardarCopia(db, contrasena));
+    if (p?.tipo === 'abrir') tarea(async () => confirmarRestaurar(await descifrarCopia(p.copia, contrasena)));
+  };
+  const cambiarBloqueo = (v: boolean) => tarea(() => guardarConfig(db, 'bloqueo', v ? '1' : '0'));
   const diasSinCopia = sync.ultimaCopia ? (Date.now() - Date.parse(sync.ultimaCopia)) / 86_400_000 : Infinity;
 
   const cambiar = (c: Partial<Terapeuta>) => setT({ ...t, ...c });
@@ -105,13 +123,31 @@ export default function Ajustes() {
 
       <Text style={[estilos.nombre, { marginTop: 24 }]}>Copia de seguridad</Text>
       <Tarjeta>
-        <Text style={estilos.meta}>Guarda un archivo con todos los datos. En el menú que se abre, elige Google Drive.</Text>
+        <Text style={estilos.meta}>Guarda un archivo cifrado con todos los datos. En el menú que se abre, elige Google Drive. Sin la contraseña no se puede abrir: apúntala en un lugar seguro.</Text>
         <Text style={[estilos.meta, diasSinCopia > 7 ? { color: colores.aviso } : null]}>
           Última copia: {cuando(sync.ultimaCopia)}{diasSinCopia > 7 ? '. Conviene hacer una cada semana.' : ''}
         </Text>
-        <Boton titulo="Guardar copia en Google Drive" onPress={() => tarea(() => guardarCopia(db))} desactivado={ocupado} />
+        <Boton titulo="Guardar copia en Google Drive" onPress={() => setPidiendo({ tipo: 'guardar' })} desactivado={ocupado} />
         <Boton titulo="Restaurar una copia" secundario onPress={restaurar} desactivado={ocupado} />
       </Tarjeta>
+
+      <Text style={[estilos.nombre, { marginTop: 24 }]}>Bloqueo</Text>
+      <Tarjeta>
+        <Casilla texto="Pedir huella, Face ID o código al abrir la app" marcada={sync.bloqueo} onCambio={cambiarBloqueo} />
+        <Text style={estilos.meta}>Se vuelve a bloquear si la app pasa más de un minuto en segundo plano.</Text>
+        {!sync.seguridadDispositivo && (
+          <Text style={[estilos.meta, { color: colores.aviso }]}>Esta tablet no tiene código ni huella configurados, así que la app no puede bloquearse. Configúralos en los ajustes de la tablet.</Text>
+        )}
+      </Tarjeta>
+
+      <PedirContrasena
+        visible={!!pidiendo}
+        repetir={pidiendo?.tipo === 'guardar'}
+        titulo={pidiendo?.tipo === 'guardar' ? 'Contraseña de la copia' : 'Abrir copia cifrada'}
+        explicacion={pidiendo?.tipo === 'guardar' ? 'La copia se cifra con esta contraseña (mínimo 8 caracteres). Si la pierdes, no hay forma de recuperar la copia.' : 'Escribe la contraseña con la que se guardó la copia.'}
+        onAceptar={conContrasena}
+        onCancelar={() => setPidiendo(null)}
+      />
     </ScrollView>
   );
 }

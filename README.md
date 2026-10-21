@@ -76,6 +76,10 @@ A partir de ahí la app sincroniza sola cada dos minutos y al abrirla o cerrarla
 
 ## Copia de seguridad en Google Drive
 
-**Ajustes › Copia de seguridad › Guardar copia en Google Drive** crea un archivo `Consulta copia AAAA-MM-DD HHMM.json` con todos los datos y abre el menú de compartir. Ahí se elige Drive y la carpeta. La app avisa si pasa más de una semana sin copia.
+**Ajustes › Copia de seguridad › Guardar copia en Google Drive** pide una contraseña, crea un archivo `Consulta copia AAAA-MM-DD HHMM.json` cifrado con AES-256 y abre el menú de compartir. Sin la contraseña la copia no se puede abrir, así que hay que guardarla en un sitio seguro. Ahí se elige Drive y la carpeta. La app avisa si pasa más de una semana sin copia.
 
 **Restaurar una copia** permite elegir el archivo, también desde Drive, y muestra cuántos pacientes, sesiones y facturas contiene antes de sustituir los datos. Lo restaurado se envía a la otra tablet en la siguiente sincronización.
+
+## Bloqueo
+
+Con **Ajustes › Bloqueo** activado (viene activado), la app pide huella, Face ID o el código de la tablet al abrirse y cuando vuelve tras más de un minuto en segundo plano. Si la tablet no tiene código ni huella, la app no se puede bloquear y lo avisa en Ajustes.

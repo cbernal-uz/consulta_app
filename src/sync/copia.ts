@@ -1,25 +1,32 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
+import { getRandomBytes } from 'expo-crypto';
 import { File, Paths } from 'expo-file-system';
 import { TABLAS_COPIA, crearCopia, nombreCopia, validarCopia, type Copia, type TablaCopia } from '../domain/copia';
+import { cifrarCopia, esCopiaCifrada, type CopiaCifrada } from '../domain/cifrado';
 import { guardarConfig } from './config';
 
-/** Crea el JSON y abre el menú de compartir para guardarlo en Google Drive. */
-export async function guardarCopia(db: SQLiteDatabase): Promise<void> {
+export async function leerCopiaLocal(db: SQLiteDatabase): Promise<Copia> {
   const tablas = {} as Record<TablaCopia, Record<string, unknown>[]>;
   for (const t of TABLAS_COPIA) tablas[t] = await db.getAllAsync(`SELECT * FROM ${t}`);
-  const ahora = new Date();
-  const archivo = new File(Paths.cache, nombreCopia(ahora));
-  if (archivo.exists) archivo.delete();
-  archivo.create();
-  await archivo.write(JSON.stringify(crearCopia(tablas, ahora)));
-  await Sharing.shareAsync(archivo.uri, { mimeType: 'application/json', dialogTitle: 'Guardar copia en Google Drive' });
-  await guardarConfig(db, 'ultima_copia', ahora.toISOString());
+  return crearCopia(tablas, new Date());
 }
 
-/** Abre el selector de archivos (incluido Google Drive) y devuelve la copia elegida, sin aplicarla. */
-export async function elegirCopia(): Promise<Copia | null> {
+/** Cifra todos los datos con la contraseña y abre el menú de compartir para guardarlo en Google Drive. */
+export async function guardarCopia(db: SQLiteDatabase, contrasena: string): Promise<void> {
+  const copia = await leerCopiaLocal(db);
+  const cifrada = await cifrarCopia(copia, contrasena, getRandomBytes);
+  const archivo = new File(Paths.cache, nombreCopia(new Date(copia.creada)));
+  if (archivo.exists) archivo.delete();
+  archivo.create();
+  await archivo.write(JSON.stringify(cifrada));
+  await Sharing.shareAsync(archivo.uri, { mimeType: 'application/json', dialogTitle: 'Guardar copia en Google Drive' });
+  await guardarConfig(db, 'ultima_copia', copia.creada);
+}
+
+/** Abre el selector de archivos (incluido Google Drive). Las copias cifradas se devuelven sin descifrar. */
+export async function elegirCopia(): Promise<Copia | CopiaCifrada | null> {
   const r = await DocumentPicker.getDocumentAsync({ type: ['application/json', 'text/plain', '*/*'], copyToCacheDirectory: true });
   if (r.canceled || !r.assets?.[0]) return null;
   const texto = await new File(r.assets[0].uri).text();
@@ -29,7 +36,7 @@ export async function elegirCopia(): Promise<Copia | null> {
   } catch {
     throw new Error('El archivo no es una copia de seguridad de Consulta.');
   }
-  return validarCopia(datos);
+  return esCopiaCifrada(datos) ? datos : validarCopia(datos);
 }
 
 /** Sustituye todos los datos del dispositivo por los de la copia. Quedan marcados para subir a Supabase. */

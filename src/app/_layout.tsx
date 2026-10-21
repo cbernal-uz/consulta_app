@@ -3,6 +3,7 @@ import { Tabs } from 'expo-router/js-tabs';
 import { migrar } from '../db/schema';
 import { colores } from '../ui/componentes';
 import { SincronizacionAutomatica } from '../sync/automatica';
+import { Bloqueo } from '../ui/Bloqueo';
 
 // La app abre en Sesiones aunque «Nueva cita» sea la primera pestaña.
 export const unstable_settings = { initialRouteName: 'index' };
@@ -11,6 +12,7 @@ export default function RootLayout() {
   return (
     <SQLiteProvider databaseName="consulta.db" onInit={migrar}>
       <SincronizacionAutomatica />
+      <Bloqueo>
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: colores.acento,
@@ -25,6 +27,7 @@ export default function RootLayout() {
         <Tabs.Screen name="ajustes" options={{ title: 'Ajustes' }} />
         <Tabs.Screen name="resumen" options={{ title: 'Resumen' }} />
       </Tabs>
+      </Bloqueo>
     </SQLiteProvider>
   );
 }
