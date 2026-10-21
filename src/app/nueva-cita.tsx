@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, ScrollView, Text, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
@@ -7,6 +7,7 @@ import { asuntoAviso, enlaceEmail, enlaceWhatsApp, textoAviso } from '../domain/
 import { formatoEuros, isoFecha, sumarDias } from '../domain/reglas';
 import type { Cita, Paciente, Terapeuta } from '../domain/types';
 import { Boton, Campo, Chip, Tarjeta, estilos } from '../ui/componentes';
+import { CampoFecha } from '../ui/CampoFecha';
 
 export default function NuevaCita() {
   const db = useSQLiteContext();
@@ -19,6 +20,14 @@ export default function NuevaCita() {
   const [duracion, setDuracion] = useState('50');
   const [modalidad, setModalidad] = useState<Cita['modalidad']>('presencial');
   const [creada, setCreada] = useState<Cita | null>(null);
+
+  // Al tocar un hueco del calendario: cita nueva con esa fecha y hora, aunque esta pantalla ya estuviera abierta.
+  useEffect(() => {
+    if (!params.fecha && !params.hora) return;
+    if (params.fecha) setFecha(params.fecha);
+    if (params.hora) setHora(params.hora);
+    setCreada(null);
+  }, [params.fecha, params.hora]);
 
   useFocusEffect(useCallback(() => {
     listarPacientes(db).then(ps => setPacientes(ps.filter(p => p.activo)));
@@ -62,8 +71,8 @@ export default function NuevaCita() {
         {pacientes.length === 0 && <Text style={estilos.sub}>Primero da de alta un paciente en la pestaña Pacientes.</Text>}
       </View>
       <View style={estilos.fila}>
-        <Campo etiqueta="Fecha (AAAA-MM-DD)" value={fecha} onChangeText={setFecha} />
-        <Campo etiqueta="Hora (HH:MM)" value={hora} onChangeText={setHora} />
+        <CampoFecha etiqueta="Fecha" tipo="fecha" value={fecha} onChange={setFecha} />
+        <CampoFecha etiqueta="Hora" tipo="hora" value={hora} onChange={setHora} />
       </View>
       <View style={estilos.fila}>
         <Campo etiqueta="Duración (min)" value={duracion} onChangeText={setDuracion} keyboardType="number-pad" />

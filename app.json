@@ -21,10 +21,24 @@
       "package": "com.cbernal.consulta"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "output": "single",
+      "name": "Consulta",
+      "shortName": "Consulta",
+      "lang": "es",
+      "themeColor": "#2f6f6a",
+      "backgroundColor": "#f5f6f4"
     },
     "plugins": [
-      "expo-router",
+      [
+        "expo-router",
+        {
+          "headers": {
+            "Cross-Origin-Opener-Policy": "same-origin",
+            "Cross-Origin-Embedder-Policy": "require-corp"
+          }
+        }
+      ],
       "expo-sqlite",
       [
         "expo-local-authentication",
@@ -40,6 +54,17 @@
         }
       ]
     ],
-    "scheme": "consulta"
+    "scheme": "consulta",
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "b423a5e4-6bd0-49e6-b69b-57bce0d306b4"
+      }
+    },
+    "owner": "cbernal"
   }
 }

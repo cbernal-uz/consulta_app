@@ -1,0 +1,8 @@
+# Cabeceras para Cloudflare Pages o Netlify. En EAS Hosting las pone el plugin expo-router (app.json).
+/*
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+  X-Robots-Tag: noindex
+
+/sw.js
+  Cache-Control: no-cache

@@ -7,7 +7,7 @@ import { cifrarCopia } from '../domain/cifrado';
 import { nombreCopia } from '../domain/copia';
 import { copiasSobrantes, cuerpoMultipart, tocaCopiaHoy } from '../domain/copiaDiaria';
 import { guardarConfig, leerConfig } from './config';
-import { leerCopiaLocal } from './copia';
+import { leerCopiaLocal } from './datosCopia';
 
 // Copia automática: una vez al día, al abrir la app, sube la copia cifrada a una carpeta de Google Drive.
 // Con el permiso drive.file la app solo puede ver los archivos que ella misma ha creado.

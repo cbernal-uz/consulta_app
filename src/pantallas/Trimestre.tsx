@@ -1,8 +1,5 @@
 import { useCallback, useState } from 'react';
 import { Alert, ScrollView, Share, Text, View } from 'react-native';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
-import { File, Paths } from 'expo-file-system';
 import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { listarFacturasCompletas, listarFacturasEmitidas, listarIngresosSinFactura } from '../db/repo';
@@ -10,6 +7,7 @@ import { htmlFacturasTrimestre, nombreArchivoTrimestre } from '../domain/pdf';
 import { fechaCorta, formatoEuros, isoFecha } from '../domain/reglas';
 import { csvIngresosSinFactura, csvLibroFacturas, porCliente, rangoTrimestre, totalesTrimestre, trimestreDe, type FacturaEmitida, type IngresoSinFactura } from '../domain/trimestre';
 import { Boton, Chip, Tarjeta, estilos } from '../ui/componentes';
+import { compartirPdf } from '../ui/compartirPdf';
 
 type T = 1 | 2 | 3 | 4;
 
@@ -42,11 +40,8 @@ export default function Trimestre() {
     try {
       const { desde, hasta } = rangoTrimestre(anio, trimestre);
       const completas = await listarFacturasCompletas(db, desde, hasta);
-      const { uri } = await Print.printToFileAsync({ html: htmlFacturasTrimestre(completas, anio, trimestre) });
-      const destino = new File(Paths.cache, nombreArchivoTrimestre(anio, trimestre, completas[0]?.emisor.nombre ?? 'Consulta'));
-      if (destino.exists) destino.delete();
-      new File(uri).move(destino);
-      await Sharing.shareAsync(destino.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: `Facturas ${trimestre}T ${anio}` });
+      await compartirPdf(htmlFacturasTrimestre(completas, anio, trimestre),
+        nombreArchivoTrimestre(anio, trimestre, completas[0]?.emisor.nombre ?? 'Consulta'), `Facturas ${trimestre}T ${anio}`);
     } catch (e) {
       Alert.alert('No se pudo crear el PDF', String(e));
     } finally {

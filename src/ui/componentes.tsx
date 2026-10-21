@@ -55,7 +55,7 @@ export function Campo({ etiqueta, ...props }: TextInputProps & { etiqueta: strin
   return (
     <View style={{ gap: 4, flex: 1 }}>
       <Text style={estilos.etiqueta}>{etiqueta}</Text>
-      <TextInput placeholderTextColor={colores.suave} style={estilos.input} {...props} />
+      <TextInput accessibilityLabel={etiqueta} placeholderTextColor={colores.suave} style={estilos.input} {...props} />
     </View>
   );
 }
@@ -70,7 +70,8 @@ export const estilos = StyleSheet.create({
   titulo: { fontSize: 24, fontWeight: '700', color: colores.tinta },
   sub: { color: colores.suave },
   etiqueta: { fontSize: 12, fontWeight: '600', color: colores.suave },
-  input: { borderWidth: 1, borderColor: colores.linea, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colores.superficie, color: colores.tinta, fontSize: 15 },
+  // 16 px como mínimo: con menos, Safari en el iPhone amplía la pantalla al escribir.
+  input: { borderWidth: 1, borderColor: colores.linea, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colores.superficie, color: colores.tinta, fontSize: 16 },
   tarjeta: { backgroundColor: colores.superficie, borderRadius: 12, borderWidth: 1, borderColor: colores.linea, padding: 14, gap: 10 },
   fila: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
   boton: { backgroundColor: colores.acento, borderRadius: 8, paddingVertical: 11, paddingHorizontal: 16, alignItems: 'center' },

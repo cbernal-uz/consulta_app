@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import Storage from 'expo-sqlite/kv-store';
 import type { SQLiteDatabase } from 'expo-sqlite';
@@ -20,7 +21,8 @@ export async function clienteSupabase(db: SQLiteDatabase): Promise<SupabaseClien
   if (cliente?.clave !== url + key) {
     cliente = {
       clave: url + key,
-      c: createClient(url, key, { auth: { storage: Storage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } }),
+      // En la web la sesión se guarda en el localStorage del navegador, que es lo que usa Supabase por defecto.
+      c: createClient(url, key, { auth: { storage: Platform.OS === 'web' ? undefined : Storage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } }),
     };
   }
   return cliente.c;
