@@ -14,7 +14,7 @@ const MIGRACIONES: string[] = [
     siguiente_numero INTEGER NOT NULL DEFAULT 1,
     retencion_empresa_pct REAL NOT NULL DEFAULT 15
   );
-  INSERT INTO terapeuta (id, nombre, direccion) VALUES (1, 'Teresa Lorente Casaus', 'Paseo de Sagasta 72, 3º Izda, 50006 Zaragoza');
+  INSERT INTO terapeuta (id, nombre, direccion, colegiado) VALUES (1, 'Teresa Lorente Casaus', 'Paseo de Sagasta 72, 3º Izda, 50006 Zaragoza', 'A-02051');
 
   CREATE TABLE pacientes (
     id TEXT PRIMARY KEY,
