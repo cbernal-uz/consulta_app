@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View, useWindowDimensions, type GestureResponderEvent } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { cambiarEstado, listarCitas, listarPacientes, marcarPago } from '../db/repo';
@@ -27,6 +28,7 @@ export default function Calendario() {
   const db = useSQLiteContext();
   const { width } = useWindowDimensions();
   const movil = width < 600;
+  const abajo = useSafeAreaInsets().bottom;
   const hoy = isoFecha(new Date());
   const [modo, setModo] = useState<Modo>(movil ? 'dia' : 'semana');
   const [ref, setRef] = useState(hoy);
@@ -64,6 +66,29 @@ export default function Calendario() {
     : `${parseFecha(dias[0]).getDate()} – ${fechaLarga(dias[6])}`;
 
   const elegida = citas.find(c => c.id === sel);
+  // En la tablet la ficha sale encima del calendario; en el móvil, en una hoja desde abajo para que se vea siempre.
+  const ficha = elegida && (
+    <Tarjeta>
+      <View style={[estilos.fila, { justifyContent: 'space-between' }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={estilos.nombre}>{nombre(elegida)}</Text>
+          <Text style={estilos.meta}>{fechaLarga(elegida.fecha)} · {elegida.hora} · {elegida.duracionMin} min · {formatoEuros(elegida.precioCentimos)}</Text>
+        </View>
+        <Chip texto="Cerrar" onPress={() => setSel(null)} />
+      </View>
+      {elegida.facturaId ? <Text style={estilos.meta}>Facturada: el estado ya no se puede cambiar.</Text> : (
+        <View style={estilos.fila}>
+          {(Object.keys(ESTADOS) as EstadoCita[]).map(e => (
+            <Chip key={e} texto={ESTADOS[e]} activo={e === elegida.estado} onPress={async () => { await cambiarEstado(db, elegida.id, e); cargar(); }} />
+          ))}
+        </View>
+      )}
+      {esCobrable(elegida.estado) && (
+        <Boton titulo={elegida.pagada ? 'Pagada · tocar para marcar pendiente' : 'Marcar como pagada'} secundario={elegida.pagada}
+          onPress={async () => { await marcarPago(db, elegida.id, !elegida.pagada, null); cargar(); }} />
+      )}
+    </Tarjeta>
+  );
 
   return (
     <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido}>
@@ -81,28 +106,7 @@ export default function Calendario() {
         </View>
       </View>
 
-      {elegida && (
-        <Tarjeta>
-          <View style={[estilos.fila, { justifyContent: 'space-between' }]}>
-            <View style={{ flex: 1 }}>
-              <Text style={estilos.nombre}>{nombre(elegida)}</Text>
-              <Text style={estilos.meta}>{fechaLarga(elegida.fecha)} · {elegida.hora} · {elegida.duracionMin} min · {formatoEuros(elegida.precioCentimos)}</Text>
-            </View>
-            <Chip texto="Cerrar" onPress={() => setSel(null)} />
-          </View>
-          {elegida.facturaId ? <Text style={estilos.meta}>Facturada: el estado ya no se puede cambiar.</Text> : (
-            <View style={estilos.fila}>
-              {(Object.keys(ESTADOS) as EstadoCita[]).map(e => (
-                <Chip key={e} texto={ESTADOS[e]} activo={e === elegida.estado} onPress={async () => { await cambiarEstado(db, elegida.id, e); cargar(); }} />
-              ))}
-            </View>
-          )}
-          {esCobrable(elegida.estado) && (
-            <Boton titulo={elegida.pagada ? 'Pagada · tocar para marcar pendiente' : 'Marcar como pagada'} secundario={elegida.pagada}
-              onPress={async () => { await marcarPago(db, elegida.id, !elegida.pagada, null); cargar(); }} />
-          )}
-        </Tarjeta>
-      )}
+      {!movil && ficha}
 
       {modo === 'dia' && (
         <View style={[estilos.fila, { justifyContent: 'space-between', flexWrap: 'nowrap' }]}>
@@ -139,9 +143,20 @@ export default function Calendario() {
         ))}
         {ocupado.length > 0 && <Text style={estilos.meta}>Gris: otros compromisos de tu calendario.</Text>}
       </View>
+
+      {movil && (
+        <Modal visible={!!ficha} transparent animationType="slide" onRequestClose={() => setSel(null)}>
+          <Pressable style={{ flex: 1, backgroundColor: '#0004' }} onPress={() => setSel(null)} accessibilityLabel="Cerrar" />
+          <View style={{ padding: 12, paddingBottom: 12 + abajo, backgroundColor: colores.fondo }}>{ficha}</View>
+        </Modal>
+      )}
     </ScrollView>
   );
 }
+
+// En la web el toque no trae locationY: se calcula con la posición del dedo dentro de la columna.
+const alturaToque = (e: GestureResponderEvent) => e.nativeEvent.locationY
+  ?? (e.nativeEvent as unknown as MouseEvent).clientY - (e.currentTarget as unknown as HTMLElement).getBoundingClientRect().top;
 
 function Rejilla({ dias, hoy, citas, ocupado, sel, detalle, nombre, onCita, onHueco }: {
   dias: string[]; hoy: string; citas: Cita[]; ocupado: Ocupado[]; sel: string | null; detalle: boolean;
@@ -166,11 +181,12 @@ function Rejilla({ dias, hoy, citas, ocupado, sel, detalle, nombre, onCita, onHu
         </View>
       )}
       <View style={{ flexDirection: 'row', paddingTop: 8 }}>
-        <View style={{ width: 48 }}>
-          {horas.map(h => <Text key={h} style={{ height: PX_HORA, fontSize: 11, color: colores.suave, textAlign: 'right', paddingRight: 6, marginTop: -7 }}>{String(h).padStart(2, '0')}:00</Text>)}
+        {/* Las horas suben 7 px para quedar centradas en su línea (una sola vez, no en cada hora). */}
+        <View style={{ width: 48, marginTop: -7 }}>
+          {horas.map(h => <Text key={h} style={{ height: PX_HORA, fontSize: 11, color: colores.suave, textAlign: 'right', paddingRight: 6 }}>{String(h).padStart(2, '0')}:00</Text>)}
         </View>
         {dias.map(d => (
-          <Pressable key={d} onPress={e => onHueco(d, horaEnPunto(e.nativeEvent.locationY, PX_HORA))} accessibilityLabel={`Crear cita el ${fechaLarga(d)}`}
+          <Pressable key={d} onPress={e => onHueco(d, horaEnPunto(alturaToque(e), PX_HORA))} accessibilityLabel={`Crear cita el ${fechaLarga(d)}`}
             style={{ flex: 1, height: alto, borderLeftWidth: 1, borderColor: colores.linea }}>
             {horas.map(h => <View key={h} pointerEvents="none" style={{ height: PX_HORA, borderTopWidth: 1, borderColor: colores.linea }} />)}
             {ocupado.filter(o => o.fecha === d).map((o, i) => {

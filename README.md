@@ -56,9 +56,35 @@ Los importes se guardan en céntimos.
 
 Para actualizar, repite el paso 2 e instala el nuevo APK encima. Los datos se conservan al actualizar, pero **se borran si se desinstala la app**.
 
+## Versión web (iPhone, iPad y ordenador)
+
+La misma app funciona en el navegador. En el iPhone y el iPad se añade a la pantalla de inicio y se abre como una app más, sin pagar la cuenta de Apple Developer.
+
+**Publicarla (gratis, con EAS Hosting de Expo, la misma cuenta del APK):**
+```sh
+npm install --legacy-peer-deps
+npx eas-cli login           # o la variable EXPO_TOKEN
+npm run web:publicar
+```
+La primera vez pide un nombre para la dirección (por ejemplo `consulta-teresa`) y queda en `https://consulta-teresa.expo.app`. Para actualizarla, repite `npm run web:publicar`. El plan gratuito de EAS Hosting da de sobra para una consulta.
+
+También sirve Cloudflare Pages o Netlify (gratis): orden de compilación `npx expo export -p web`, carpeta `dist`. El archivo `public/_headers` ya pone las cabeceras necesarias.
+
+**Instalarla en el iPhone:** abre la dirección en Safari › botón Compartir › «Añadir a pantalla de inicio». Ábrela siempre desde ese icono: así los datos no se borran aunque pase tiempo sin usarla. Después, en Ajustes: conecta Supabase (los mismos datos que en la tablet) y pon una contraseña de bloqueo; luego puedes añadir Face ID.
+
+**Qué cambia respecto a la app de la tablet:**
+- Bloqueo: contraseña de ese dispositivo y, si se quiere, Face ID o huella (passkey) en lugar del bloqueo del sistema.
+- Fecha y hora de la cita con las ruedas del iPhone.
+- La copia de seguridad se descarga como archivo (en el iPhone, Archivos › Descargas) y se restaura eligiendo el archivo.
+- El PDF del trimestre se abre en el diálogo de imprimir; desde ahí se guarda como PDF.
+- La copia diaria en Google Drive y la publicación en Google Calendar se hacen solo desde la tablet. Las citas creadas en el iPhone llegan a la tablet al sincronizar y, desde ella, a Google Calendar.
+- Se abre en una sola pestaña a la vez (la base de datos del navegador no se puede compartir entre pestañas).
+
+**Detalles técnicos:** SQLite funciona en el navegador con WebAssembly y necesita las cabeceras `Cross-Origin-Opener-Policy: same-origin` y `Cross-Origin-Embedder-Policy: require-corp` (`require-corp` porque Safari no admite `credentialless`). Las ponen `app.json` (EAS Hosting), `public/_headers` (Cloudflare/Netlify), `metro.config.js` (desarrollo) y, si faltan, `public/sw.js`. Los archivos `*.web.ts(x)` sustituyen a los nativos en la web.
+
 ## Dónde se guardan los datos
 
-En cada tablet, en una base de datos SQLite (`consulta.db`) dentro del espacio privado de la app. Si se configura Supabase, se copian también en vuestro proyecto de Supabase, que es lo que mantiene las dos tablets iguales.
+En cada tablet, en una base de datos SQLite (`consulta.db`) dentro del espacio privado de la app. En la versión web, dentro del almacenamiento del navegador de ese dispositivo. Si se configura Supabase, se copian también en vuestro proyecto de Supabase, que es lo que mantiene las dos tablets iguales.
 
 ## Sincronizar las tablets con Supabase (gratis)
 

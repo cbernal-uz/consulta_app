@@ -11,14 +11,15 @@ import { elegirCopia, guardarCopia, restaurarCopia } from '../sync/copia';
 import { resumenCopia, type Copia } from '../domain/copia';
 import { descifrarCopia, esCopiaCifrada, type CopiaCifrada } from '../domain/cifrado';
 import { PedirContrasena } from '../ui/Contrasena';
-import * as LocalAuthentication from 'expo-local-authentication';
+import { AjustesBloqueo } from '../ui/AjustesBloqueo';
 import { calendariosEscribibles, dejarDePublicar, pedirPermiso, publicarCitas, type CalendarioDisponible } from '../sync/googleCalendar';
 import { conectarGoogle, desconectarGoogle, guardarContrasenaAuto, hayContrasenaAuto, subirCopiaADrive } from '../sync/drive';
 
 const cuando = (iso: string | null) => (iso ? new Date(iso).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : 'nunca');
+const web = Platform.OS === 'web';
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-type EstadoSync = { url: string; key: string; usuario: string | null; ultima: string | null; error: string | null; pendientes: number; ultimaCopia: string | null; bloqueo: boolean; seguridadDispositivo: boolean;
+type EstadoSync = { url: string; key: string; usuario: string | null; ultima: string | null; error: string | null; pendientes: number; ultimaCopia: string | null;
   google: string | null; iosClientId: string; auto: boolean; hayContrasena: boolean; ultimaAuto: string | null; errorAuto: string | null;
   gcal: string | null; gcalOcupado: boolean; gcalUltima: string | null; gcalError: string | null };
 
@@ -38,8 +39,6 @@ export default function Ajustes() {
       usuario: await usuarioConectado(db), ultima: await leerConfig(db, 'ultima_sincronizacion'),
       error: await leerConfig(db, 'error_sincronizacion'), pendientes: await pendientesDeSubir(db),
       ultimaCopia: await leerConfig(db, 'ultima_copia'),
-      bloqueo: (await leerConfig(db, 'bloqueo')) !== '0',
-      seguridadDispositivo: (await LocalAuthentication.getEnrolledLevelAsync()) !== LocalAuthentication.SecurityLevel.NONE,
       google: await leerConfig(db, 'google_email'), iosClientId: (await leerConfig(db, 'google_ios_client_id')) ?? '',
       auto: (await leerConfig(db, 'copia_auto')) === '1', hayContrasena: await hayContrasenaAuto(),
       ultimaAuto: await leerConfig(db, 'ultima_copia_auto'), errorAuto: await leerConfig(db, 'error_copia_auto'),
@@ -65,7 +64,7 @@ export default function Ajustes() {
     if (r) Alert.alert('Sincronizado', `${r.bajadas} cambios recibidos y ${r.subidas} enviados.`);
   });
   const confirmarRestaurar = (copia: Copia) => {
-    Alert.alert('¿Restaurar esta copia?', `Copia del ${cuando(copia.creada)} con ${resumenCopia(copia)}. Se sustituirán todos los datos de esta tablet y se enviarán a la otra al sincronizar.`, [
+    Alert.alert('¿Restaurar esta copia?', `Copia del ${cuando(copia.creada)} con ${resumenCopia(copia)}. Se sustituirán todos los datos de este dispositivo y se enviarán a los demás al sincronizar.`, [
       { text: 'Cancelar', style: 'cancel' },
       { text: 'Restaurar', style: 'destructive', onPress: () => tarea(async () => {
         await restaurarCopia(db, copia);
@@ -112,7 +111,6 @@ export default function Ajustes() {
     { text: 'Dejarlos', onPress: () => tarea(() => dejarDePublicar(db, false)) },
     { text: 'Quitarlos', style: 'destructive', onPress: () => tarea(() => dejarDePublicar(db, true)) },
   ]);
-  const cambiarBloqueo = (v: boolean) => tarea(() => guardarConfig(db, 'bloqueo', v ? '1' : '0'));
   const diasSinCopia = sync.ultimaCopia ? (Date.now() - Date.parse(sync.ultimaCopia)) / 86_400_000 : Infinity;
 
   const cambiar = (c: Partial<Terapeuta>) => setT({ ...t, ...c });
@@ -133,7 +131,7 @@ export default function Ajustes() {
         onChangeText={v => cambiar({ retencionEmpresaPct: Number(v.replace(',', '.')) || 0 })} />
       <Boton titulo="Guardar" onPress={guardar} />
 
-      <Text style={[estilos.nombre, { marginTop: 24 }]}>Sincronización entre tablets</Text>
+      <Text style={[estilos.nombre, { marginTop: 24 }]}>Sincronización entre dispositivos</Text>
       <Tarjeta>
         {sync.usuario ? (
           <>
@@ -142,11 +140,11 @@ export default function Ajustes() {
             <Text style={estilos.meta}>{sync.pendientes ? `${sync.pendientes} cambios pendientes de enviar.` : 'Todo enviado.'}</Text>
             {sync.error && <Text style={[estilos.meta, { color: colores.aviso }]}>Último error: {sync.error}</Text>}
             <Boton titulo={ocupado ? 'Sincronizando…' : 'Sincronizar ahora'} onPress={sincronizarAhora} desactivado={ocupado} />
-            <Boton titulo="Desconectar esta tablet" secundario onPress={() => tarea(() => desconectar(db))} desactivado={ocupado} />
+            <Boton titulo="Desconectar este dispositivo" secundario onPress={() => tarea(() => desconectar(db))} desactivado={ocupado} />
           </>
         ) : (
           <>
-            <Text style={estilos.meta}>Datos del proyecto de Supabase (Project Settings › API) y la cuenta de la consulta. Usa la misma cuenta en las dos tablets.</Text>
+            <Text style={estilos.meta}>Datos del proyecto de Supabase (Project Settings › API) y la cuenta de la consulta. Usa la misma cuenta en todos los dispositivos.</Text>
             <Campo etiqueta="URL del proyecto" value={sync.url} onChangeText={url => setSync({ ...sync, url })} autoCapitalize="none" keyboardType="url" placeholder="https://xxxx.supabase.co" />
             <Campo etiqueta="Clave pública (anon / publishable)" value={sync.key} onChangeText={key => setSync({ ...sync, key })} autoCapitalize="none" />
             <Campo etiqueta="Email de la cuenta" value={acceso.email} onChangeText={email => setAcceso({ ...acceso, email })} autoCapitalize="none" keyboardType="email-address" />
@@ -159,69 +157,75 @@ export default function Ajustes() {
 
       <Text style={[estilos.nombre, { marginTop: 24 }]}>Copia de seguridad</Text>
       <Tarjeta>
-        <Text style={estilos.meta}>Guarda un archivo cifrado con todos los datos. En el menú que se abre, elige Google Drive. Sin la contraseña no se puede abrir: apúntala en un lugar seguro.</Text>
+        <Text style={estilos.meta}>
+          {web ? 'Descarga un archivo cifrado con todos los datos. En el iPhone queda en Archivos › Descargas.' : 'Guarda un archivo cifrado con todos los datos. En el menú que se abre, elige Google Drive.'} Sin la contraseña no se puede abrir: apúntala en un lugar seguro.
+        </Text>
         <Text style={[estilos.meta, diasSinCopia > 7 ? { color: colores.aviso } : null]}>
           Última copia: {cuando(sync.ultimaCopia)}{diasSinCopia > 7 ? '. Conviene hacer una cada semana.' : ''}
         </Text>
-        <Boton titulo="Guardar copia en Google Drive" onPress={() => setPidiendo({ tipo: 'guardar' })} desactivado={ocupado} />
+        <Boton titulo={web ? 'Descargar copia' : 'Guardar copia en Google Drive'} onPress={() => setPidiendo({ tipo: 'guardar' })} desactivado={ocupado} />
         <Boton titulo="Restaurar una copia" secundario onPress={restaurar} desactivado={ocupado} />
       </Tarjeta>
 
-      <Text style={[estilos.nombre, { marginTop: 24 }]}>Copia automática diaria en Google Drive</Text>
-      <Tarjeta>
-        {sync.google ? (
-          <>
-            <Text style={estilos.nombre}>Google: {sync.google}</Text>
-            <Casilla texto="Subir una copia cifrada cada día" marcada={sync.auto} onCambio={cambiarAuto} />
-            <Text style={estilos.meta}>Se hace la primera vez que se abre la app cada día, en la carpeta «Consulta - copias de seguridad». Se guardan las 30 últimas. Última: {cuando(sync.ultimaAuto)}.</Text>
-            {sync.errorAuto && <Text style={[estilos.meta, { color: colores.aviso }]}>Último error: {sync.errorAuto}</Text>}
-            {sync.auto && <Boton titulo={ocupado ? 'Subiendo…' : 'Subir copia ahora'} onPress={() => tarea(() => subirCopiaADrive(db))} desactivado={ocupado} />}
-            {sync.auto && <Boton titulo="Cambiar contraseña de la copia automática" secundario onPress={() => setPidiendo({ tipo: 'auto' })} desactivado={ocupado} />}
-            <Boton titulo="Desconectar Google" secundario onPress={() => tarea(() => desconectarGoogle(db))} desactivado={ocupado} />
-          </>
-        ) : (
-          <>
-            <Text style={estilos.meta}>Conecta la cuenta de Google donde quieres guardar las copias. La app solo podrá ver los archivos que ella misma cree.</Text>
-            {Platform.OS === 'ios' && (
-              <Campo etiqueta="ID de cliente de iOS (Google Cloud)" value={sync.iosClientId} onChangeText={iosClientId => setSync({ ...sync, iosClientId })} autoCapitalize="none" />
-            )}
-            <Boton titulo="Conectar con Google" onPress={conectarDrive} desactivado={ocupado || (Platform.OS === 'ios' && !sync.iosClientId)} />
-          </>
-        )}
-      </Tarjeta>
+      {web ? (
+        <>
+          <Text style={[estilos.nombre, { marginTop: 24 }]}>Google Drive y Google Calendar</Text>
+          <Tarjeta>
+            <Text style={estilos.meta}>La copia diaria en Google Drive y la publicación de citas en Google Calendar se hacen desde la tablet. Las citas que crees aquí llegan a la tablet al sincronizar y, desde ella, a Google Calendar.</Text>
+          </Tarjeta>
+        </>
+      ) : (
+        <>
+        <Text style={[estilos.nombre, { marginTop: 24 }]}>Copia automática diaria en Google Drive</Text>
+        <Tarjeta>
+          {sync.google ? (
+            <>
+              <Text style={estilos.nombre}>Google: {sync.google}</Text>
+              <Casilla texto="Subir una copia cifrada cada día" marcada={sync.auto} onCambio={cambiarAuto} />
+              <Text style={estilos.meta}>Se hace la primera vez que se abre la app cada día, en la carpeta «Consulta - copias de seguridad». Se guardan las 30 últimas. Última: {cuando(sync.ultimaAuto)}.</Text>
+              {sync.errorAuto && <Text style={[estilos.meta, { color: colores.aviso }]}>Último error: {sync.errorAuto}</Text>}
+              {sync.auto && <Boton titulo={ocupado ? 'Subiendo…' : 'Subir copia ahora'} onPress={() => tarea(() => subirCopiaADrive(db))} desactivado={ocupado} />}
+              {sync.auto && <Boton titulo="Cambiar contraseña de la copia automática" secundario onPress={() => setPidiendo({ tipo: 'auto' })} desactivado={ocupado} />}
+              <Boton titulo="Desconectar Google" secundario onPress={() => tarea(() => desconectarGoogle(db))} desactivado={ocupado} />
+            </>
+          ) : (
+            <>
+              <Text style={estilos.meta}>Conecta la cuenta de Google donde quieres guardar las copias. La app solo podrá ver los archivos que ella misma cree.</Text>
+              {Platform.OS === 'ios' && (
+                <Campo etiqueta="ID de cliente de iOS (Google Cloud)" value={sync.iosClientId} onChangeText={iosClientId => setSync({ ...sync, iosClientId })} autoCapitalize="none" />
+              )}
+              <Boton titulo="Conectar con Google" onPress={conectarDrive} desactivado={ocupado || (Platform.OS === 'ios' && !sync.iosClientId)} />
+            </>
+          )}
+        </Tarjeta>
 
-      <Text style={[estilos.nombre, { marginTop: 24 }]}>Google Calendar</Text>
-      <Tarjeta>
-        {sync.gcal ? (
-          <>
-            <Text style={estilos.nombre}>Las citas se publican en el calendario de este dispositivo</Text>
-            <Text style={estilos.meta}>Título «Sesión · iniciales», sin otros datos. Las canceladas se quitan. Última vez: {cuando(sync.gcalUltima)}.</Text>
-            {sync.gcalError && <Text style={[estilos.meta, { color: colores.aviso }]}>Último error: {sync.gcalError}</Text>}
-            <Boton titulo="Publicar ahora" onPress={() => tarea(async () => { await publicarCitas(db); })} desactivado={ocupado} />
-            <Boton titulo="Dejar de publicar" secundario onPress={dejarCalendario} desactivado={ocupado} />
-          </>
-        ) : (
-          <>
-            <Text style={estilos.meta}>Añade las citas al calendario de Gmail de Teresa. La cuenta de Google tiene que estar añadida en el dispositivo. Actívalo solo en un dispositivo, por ejemplo el iPhone de Teresa, para que no salgan repetidas.</Text>
-            {calendarios ? (
-              calendarios.length ? calendarios.map(c => (
-                <Boton key={c.id} titulo={`${c.titulo}${c.cuenta && c.cuenta !== c.titulo ? ` · ${c.cuenta}` : ''}`} secundario onPress={() => publicarEn(c.id)} />
-              )) : <Text style={estilos.meta}>No hay calendarios en los que escribir. Añade la cuenta de Google en los ajustes del dispositivo.</Text>
-            ) : <Boton titulo="Elegir calendario" onPress={elegirCalendario} desactivado={ocupado} />}
-          </>
-        )}
-        <Casilla texto="Mostrar mis otros compromisos en el calendario de la app" marcada={sync.gcalOcupado}
-          onCambio={v => tarea(async () => { if (v) await pedirPermiso(); await guardarConfig(db, 'gcal_ocupado', v ? '1' : '0'); })} />
-      </Tarjeta>
+        <Text style={[estilos.nombre, { marginTop: 24 }]}>Google Calendar</Text>
+        <Tarjeta>
+          {sync.gcal ? (
+            <>
+              <Text style={estilos.nombre}>Las citas se publican en el calendario de este dispositivo</Text>
+              <Text style={estilos.meta}>Título «Sesión · iniciales», sin otros datos. Las canceladas se quitan. Última vez: {cuando(sync.gcalUltima)}.</Text>
+              {sync.gcalError && <Text style={[estilos.meta, { color: colores.aviso }]}>Último error: {sync.gcalError}</Text>}
+              <Boton titulo="Publicar ahora" onPress={() => tarea(async () => { await publicarCitas(db); })} desactivado={ocupado} />
+              <Boton titulo="Dejar de publicar" secundario onPress={dejarCalendario} desactivado={ocupado} />
+            </>
+          ) : (
+            <>
+              <Text style={estilos.meta}>Añade las citas al calendario de Gmail de Teresa. La cuenta de Google tiene que estar añadida en el dispositivo. Actívalo solo en un dispositivo, por ejemplo el iPhone de Teresa, para que no salgan repetidas.</Text>
+              {calendarios ? (
+                calendarios.length ? calendarios.map(c => (
+                  <Boton key={c.id} titulo={`${c.titulo}${c.cuenta && c.cuenta !== c.titulo ? ` · ${c.cuenta}` : ''}`} secundario onPress={() => publicarEn(c.id)} />
+                )) : <Text style={estilos.meta}>No hay calendarios en los que escribir. Añade la cuenta de Google en los ajustes del dispositivo.</Text>
+              ) : <Boton titulo="Elegir calendario" onPress={elegirCalendario} desactivado={ocupado} />}
+            </>
+          )}
+          <Casilla texto="Mostrar mis otros compromisos en el calendario de la app" marcada={sync.gcalOcupado}
+            onCambio={v => tarea(async () => { if (v) await pedirPermiso(); await guardarConfig(db, 'gcal_ocupado', v ? '1' : '0'); })} />
+        </Tarjeta>
+        </>
+      )}
 
-      <Text style={[estilos.nombre, { marginTop: 24 }]}>Bloqueo</Text>
-      <Tarjeta>
-        <Casilla texto="Pedir huella, Face ID o código al abrir la app" marcada={sync.bloqueo} onCambio={cambiarBloqueo} />
-        <Text style={estilos.meta}>Se vuelve a bloquear si la app pasa más de un minuto en segundo plano.</Text>
-        {!sync.seguridadDispositivo && (
-          <Text style={[estilos.meta, { color: colores.aviso }]}>Esta tablet no tiene código ni huella configurados, así que la app no puede bloquearse. Configúralos en los ajustes de la tablet.</Text>
-        )}
-      </Tarjeta>
+      <AjustesBloqueo />
 
       <PedirContrasena
         visible={!!pidiendo}
