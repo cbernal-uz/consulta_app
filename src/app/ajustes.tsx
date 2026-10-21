@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Alert, ScrollView, Text } from 'react-native';
+import { Alert, Platform, ScrollView, Text } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { guardarTerapeuta, leerTerapeuta } from '../db/repo';
@@ -12,11 +12,13 @@ import { resumenCopia, type Copia } from '../domain/copia';
 import { descifrarCopia, esCopiaCifrada, type CopiaCifrada } from '../domain/cifrado';
 import { PedirContrasena } from '../ui/Contrasena';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { conectarGoogle, desconectarGoogle, guardarContrasenaAuto, hayContrasenaAuto, subirCopiaADrive } from '../sync/drive';
 
 const cuando = (iso: string | null) => (iso ? new Date(iso).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : 'nunca');
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-type EstadoSync = { url: string; key: string; usuario: string | null; ultima: string | null; error: string | null; pendientes: number; ultimaCopia: string | null; bloqueo: boolean; seguridadDispositivo: boolean };
+type EstadoSync = { url: string; key: string; usuario: string | null; ultima: string | null; error: string | null; pendientes: number; ultimaCopia: string | null; bloqueo: boolean; seguridadDispositivo: boolean;
+  google: string | null; iosClientId: string; auto: boolean; hayContrasena: boolean; ultimaAuto: string | null; errorAuto: string | null };
 
 export default function Ajustes() {
   const db = useSQLiteContext();
@@ -25,7 +27,7 @@ export default function Ajustes() {
   const [acceso, setAcceso] = useState({ email: '', password: '' });
   const [ocupado, setOcupado] = useState(false);
   // Qué se está pidiendo con la ventana de contraseña: crear una copia o abrir una cifrada.
-  const [pidiendo, setPidiendo] = useState<{ tipo: 'guardar' } | { tipo: 'abrir'; copia: CopiaCifrada } | null>(null);
+  const [pidiendo, setPidiendo] = useState<{ tipo: 'guardar' } | { tipo: 'auto' } | { tipo: 'abrir'; copia: CopiaCifrada } | null>(null);
 
   const cargarSync = useCallback(async () => {
     setSync({
@@ -35,6 +37,9 @@ export default function Ajustes() {
       ultimaCopia: await leerConfig(db, 'ultima_copia'),
       bloqueo: (await leerConfig(db, 'bloqueo')) !== '0',
       seguridadDispositivo: (await LocalAuthentication.getEnrolledLevelAsync()) !== LocalAuthentication.SecurityLevel.NONE,
+      google: await leerConfig(db, 'google_email'), iosClientId: (await leerConfig(db, 'google_ios_client_id')) ?? '',
+      auto: (await leerConfig(db, 'copia_auto')) === '1', hayContrasena: await hayContrasenaAuto(),
+      ultimaAuto: await leerConfig(db, 'ultima_copia_auto'), errorAuto: await leerConfig(db, 'error_copia_auto'),
     });
   }, [db]);
   useFocusEffect(useCallback(() => { leerTerapeuta(db).then(setT); cargarSync(); }, [db, cargarSync]));
@@ -74,8 +79,19 @@ export default function Ajustes() {
     const p = pidiendo;
     setPidiendo(null);
     if (p?.tipo === 'guardar') tarea(() => guardarCopia(db, contrasena));
+    if (p?.tipo === 'auto') tarea(async () => {
+      await guardarContrasenaAuto(contrasena);
+      await guardarConfig(db, 'copia_auto', '1');
+      await subirCopiaADrive(db);
+      Alert.alert('Copia automática activada', 'Se ha subido la primera copia. A partir de ahora se hará una cada día al abrir la app.');
+    });
     if (p?.tipo === 'abrir') tarea(async () => confirmarRestaurar(await descifrarCopia(p.copia, contrasena)));
   };
+  const conectarDrive = () => tarea(async () => {
+    if (Platform.OS === 'ios') await guardarConfig(db, 'google_ios_client_id', sync.iosClientId.trim());
+    await conectarGoogle(db);
+  });
+  const cambiarAuto = (v: boolean) => (v && !sync.hayContrasena ? setPidiendo({ tipo: 'auto' }) : tarea(() => guardarConfig(db, 'copia_auto', v ? '1' : '0')));
   const cambiarBloqueo = (v: boolean) => tarea(() => guardarConfig(db, 'bloqueo', v ? '1' : '0'));
   const diasSinCopia = sync.ultimaCopia ? (Date.now() - Date.parse(sync.ultimaCopia)) / 86_400_000 : Infinity;
 
@@ -131,6 +147,29 @@ export default function Ajustes() {
         <Boton titulo="Restaurar una copia" secundario onPress={restaurar} desactivado={ocupado} />
       </Tarjeta>
 
+      <Text style={[estilos.nombre, { marginTop: 24 }]}>Copia automática diaria en Google Drive</Text>
+      <Tarjeta>
+        {sync.google ? (
+          <>
+            <Text style={estilos.nombre}>Google: {sync.google}</Text>
+            <Casilla texto="Subir una copia cifrada cada día" marcada={sync.auto} onCambio={cambiarAuto} />
+            <Text style={estilos.meta}>Se hace la primera vez que se abre la app cada día, en la carpeta «Consulta - copias de seguridad». Se guardan las 30 últimas. Última: {cuando(sync.ultimaAuto)}.</Text>
+            {sync.errorAuto && <Text style={[estilos.meta, { color: colores.aviso }]}>Último error: {sync.errorAuto}</Text>}
+            {sync.auto && <Boton titulo={ocupado ? 'Subiendo…' : 'Subir copia ahora'} onPress={() => tarea(() => subirCopiaADrive(db))} desactivado={ocupado} />}
+            {sync.auto && <Boton titulo="Cambiar contraseña de la copia automática" secundario onPress={() => setPidiendo({ tipo: 'auto' })} desactivado={ocupado} />}
+            <Boton titulo="Desconectar Google" secundario onPress={() => tarea(() => desconectarGoogle(db))} desactivado={ocupado} />
+          </>
+        ) : (
+          <>
+            <Text style={estilos.meta}>Conecta la cuenta de Google donde quieres guardar las copias. La app solo podrá ver los archivos que ella misma cree.</Text>
+            {Platform.OS === 'ios' && (
+              <Campo etiqueta="ID de cliente de iOS (Google Cloud)" value={sync.iosClientId} onChangeText={iosClientId => setSync({ ...sync, iosClientId })} autoCapitalize="none" />
+            )}
+            <Boton titulo="Conectar con Google" onPress={conectarDrive} desactivado={ocupado || (Platform.OS === 'ios' && !sync.iosClientId)} />
+          </>
+        )}
+      </Tarjeta>
+
       <Text style={[estilos.nombre, { marginTop: 24 }]}>Bloqueo</Text>
       <Tarjeta>
         <Casilla texto="Pedir huella, Face ID o código al abrir la app" marcada={sync.bloqueo} onCambio={cambiarBloqueo} />
@@ -142,9 +181,9 @@ export default function Ajustes() {
 
       <PedirContrasena
         visible={!!pidiendo}
-        repetir={pidiendo?.tipo === 'guardar'}
-        titulo={pidiendo?.tipo === 'guardar' ? 'Contraseña de la copia' : 'Abrir copia cifrada'}
-        explicacion={pidiendo?.tipo === 'guardar' ? 'La copia se cifra con esta contraseña (mínimo 8 caracteres). Si la pierdes, no hay forma de recuperar la copia.' : 'Escribe la contraseña con la que se guardó la copia.'}
+        repetir={pidiendo?.tipo !== 'abrir'}
+        titulo={pidiendo?.tipo === 'abrir' ? 'Abrir copia cifrada' : pidiendo?.tipo === 'auto' ? 'Contraseña de las copias automáticas' : 'Contraseña de la copia'}
+        explicacion={pidiendo?.tipo === 'auto' ? 'Las copias diarias se cifran con esta contraseña, que queda guardada de forma segura en esta tablet. Apúntala: la necesitarás para restaurar una copia en otra tablet.' : pidiendo?.tipo !== 'abrir' ? 'La copia se cifra con esta contraseña (mínimo 8 caracteres). Si la pierdes, no hay forma de recuperar la copia.' : 'Escribe la contraseña con la que se guardó la copia.'}
         onAceptar={conContrasena}
         onCancelar={() => setPidiendo(null)}
       />
