@@ -12,13 +12,15 @@ import { resumenCopia, type Copia } from '../domain/copia';
 import { descifrarCopia, esCopiaCifrada, type CopiaCifrada } from '../domain/cifrado';
 import { PedirContrasena } from '../ui/Contrasena';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { calendariosEscribibles, dejarDePublicar, pedirPermiso, publicarCitas, type CalendarioDisponible } from '../sync/googleCalendar';
 import { conectarGoogle, desconectarGoogle, guardarContrasenaAuto, hayContrasenaAuto, subirCopiaADrive } from '../sync/drive';
 
 const cuando = (iso: string | null) => (iso ? new Date(iso).toLocaleString('es-ES', { dateStyle: 'short', timeStyle: 'short' }) : 'nunca');
 const mensaje = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 type EstadoSync = { url: string; key: string; usuario: string | null; ultima: string | null; error: string | null; pendientes: number; ultimaCopia: string | null; bloqueo: boolean; seguridadDispositivo: boolean;
-  google: string | null; iosClientId: string; auto: boolean; hayContrasena: boolean; ultimaAuto: string | null; errorAuto: string | null };
+  google: string | null; iosClientId: string; auto: boolean; hayContrasena: boolean; ultimaAuto: string | null; errorAuto: string | null;
+  gcal: string | null; gcalOcupado: boolean; gcalUltima: string | null; gcalError: string | null };
 
 export default function Ajustes() {
   const db = useSQLiteContext();
@@ -26,6 +28,7 @@ export default function Ajustes() {
   const [sync, setSync] = useState<EstadoSync | null>(null);
   const [acceso, setAcceso] = useState({ email: '', password: '' });
   const [ocupado, setOcupado] = useState(false);
+  const [calendarios, setCalendarios] = useState<CalendarioDisponible[] | null>(null);
   // Qué se está pidiendo con la ventana de contraseña: crear una copia o abrir una cifrada.
   const [pidiendo, setPidiendo] = useState<{ tipo: 'guardar' } | { tipo: 'auto' } | { tipo: 'abrir'; copia: CopiaCifrada } | null>(null);
 
@@ -40,6 +43,8 @@ export default function Ajustes() {
       google: await leerConfig(db, 'google_email'), iosClientId: (await leerConfig(db, 'google_ios_client_id')) ?? '',
       auto: (await leerConfig(db, 'copia_auto')) === '1', hayContrasena: await hayContrasenaAuto(),
       ultimaAuto: await leerConfig(db, 'ultima_copia_auto'), errorAuto: await leerConfig(db, 'error_copia_auto'),
+      gcal: await leerConfig(db, 'gcal_id'), gcalOcupado: (await leerConfig(db, 'gcal_ocupado')) !== '0',
+      gcalUltima: await leerConfig(db, 'gcal_ultima'), gcalError: await leerConfig(db, 'gcal_error'),
     });
   }, [db]);
   useFocusEffect(useCallback(() => { leerTerapeuta(db).then(setT); cargarSync(); }, [db, cargarSync]));
@@ -92,6 +97,21 @@ export default function Ajustes() {
     await conectarGoogle(db);
   });
   const cambiarAuto = (v: boolean) => (v && !sync.hayContrasena ? setPidiendo({ tipo: 'auto' }) : tarea(() => guardarConfig(db, 'copia_auto', v ? '1' : '0')));
+  const elegirCalendario = () => tarea(async () => {
+    if (!(await pedirPermiso())) throw new Error('Sin permiso para usar el calendario. Actívalo en los ajustes del dispositivo.');
+    setCalendarios(await calendariosEscribibles());
+  });
+  const publicarEn = (id: string) => tarea(async () => {
+    await guardarConfig(db, 'gcal_id', id);
+    setCalendarios(null);
+    const r = await publicarCitas(db);
+    if (r) Alert.alert('Citas publicadas', `${r.creados} citas añadidas al calendario.`);
+  });
+  const dejarCalendario = () => Alert.alert('Dejar de publicar', '¿Quitar también del calendario los eventos que creó la app?', [
+    { text: 'Cancelar', style: 'cancel' },
+    { text: 'Dejarlos', onPress: () => tarea(() => dejarDePublicar(db, false)) },
+    { text: 'Quitarlos', style: 'destructive', onPress: () => tarea(() => dejarDePublicar(db, true)) },
+  ]);
   const cambiarBloqueo = (v: boolean) => tarea(() => guardarConfig(db, 'bloqueo', v ? '1' : '0'));
   const diasSinCopia = sync.ultimaCopia ? (Date.now() - Date.parse(sync.ultimaCopia)) / 86_400_000 : Infinity;
 
@@ -168,6 +188,30 @@ export default function Ajustes() {
             <Boton titulo="Conectar con Google" onPress={conectarDrive} desactivado={ocupado || (Platform.OS === 'ios' && !sync.iosClientId)} />
           </>
         )}
+      </Tarjeta>
+
+      <Text style={[estilos.nombre, { marginTop: 24 }]}>Google Calendar</Text>
+      <Tarjeta>
+        {sync.gcal ? (
+          <>
+            <Text style={estilos.nombre}>Las citas se publican en el calendario de este dispositivo</Text>
+            <Text style={estilos.meta}>Título «Sesión · iniciales», sin otros datos. Las canceladas se quitan. Última vez: {cuando(sync.gcalUltima)}.</Text>
+            {sync.gcalError && <Text style={[estilos.meta, { color: colores.aviso }]}>Último error: {sync.gcalError}</Text>}
+            <Boton titulo="Publicar ahora" onPress={() => tarea(async () => { await publicarCitas(db); })} desactivado={ocupado} />
+            <Boton titulo="Dejar de publicar" secundario onPress={dejarCalendario} desactivado={ocupado} />
+          </>
+        ) : (
+          <>
+            <Text style={estilos.meta}>Añade las citas al calendario de Gmail de Teresa. La cuenta de Google tiene que estar añadida en el dispositivo. Actívalo solo en un dispositivo, por ejemplo el iPhone de Teresa, para que no salgan repetidas.</Text>
+            {calendarios ? (
+              calendarios.length ? calendarios.map(c => (
+                <Boton key={c.id} titulo={`${c.titulo}${c.cuenta && c.cuenta !== c.titulo ? ` · ${c.cuenta}` : ''}`} secundario onPress={() => publicarEn(c.id)} />
+              )) : <Text style={estilos.meta}>No hay calendarios en los que escribir. Añade la cuenta de Google en los ajustes del dispositivo.</Text>
+            ) : <Boton titulo="Elegir calendario" onPress={elegirCalendario} desactivado={ocupado} />}
+          </>
+        )}
+        <Casilla texto="Mostrar mis otros compromisos en el calendario de la app" marcada={sync.gcalOcupado}
+          onCambio={v => tarea(async () => { if (v) await pedirPermiso(); await guardarConfig(db, 'gcal_ocupado', v ? '1' : '0'); })} />
       </Tarjeta>
 
       <Text style={[estilos.nombre, { marginTop: 24 }]}>Bloqueo</Text>

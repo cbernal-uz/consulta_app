@@ -32,7 +32,13 @@
           "faceIDPermission": "Consulta usa Face ID para proteger los datos de los pacientes."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Consulta añade las citas a tu calendario y muestra tus otros compromisos para no dar citas encima."
+        }
+      ]
     ],
     "scheme": "consulta"
   }

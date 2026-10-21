@@ -100,3 +100,21 @@ Una vez al día, la primera vez que se abre la app, se sube una copia cifrada a 
 6. Compila de nuevo la app. En la tablet, ve a **Ajustes › Copia automática diaria**, pulsa **Conectar con Google**, marca la casilla y elige la contraseña de las copias.
 
 La contraseña de las copias automáticas se guarda en el almacén seguro del dispositivo (Keychain o Keystore). Apúntala también en otro sitio, porque hace falta para restaurar una copia en otra tablet.
+
+## Calendario y Google Calendar
+
+La pestaña **Calendario** tiene tres vistas:
+- **Día**: la vista por defecto en el móvil, con una tira de la semana arriba.
+- **Semana**: la vista por defecto en la tablet.
+- **Mes**: en el móvil, cada sesión es una barra de color.
+
+Las sesiones pagadas aparecen en verde sólido con una **P**. Al tocar un hueco libre se crea una cita a esa hora. Al tocar una sesión se abre su ficha, donde se cambia el estado o se marca como pagada.
+
+**Ajustes › Google Calendar** publica las citas en un calendario del dispositivo. Si en el dispositivo está añadida la cuenta de Gmail de Teresa, el propio sistema las sube a su Google Calendar.
+- El título es solo «Sesión · iniciales», como «Sesión · L. M.».
+- Como lugar se pone la dirección de la consulta, u «Online» si la sesión es online.
+- Se publican las citas de los últimos 30 días y de los próximos 180.
+- Las canceladas se quitan del calendario.
+- Conviene activarlo en un solo dispositivo, porque si lo publican dos, las citas salen repetidas.
+
+Además, el calendario de la app muestra en gris los otros compromisos del calendario del dispositivo, para no dar citas encima. Se puede desactivar en Ajustes.

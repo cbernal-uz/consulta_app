@@ -22,6 +22,7 @@ export default function RootLayout() {
       >
         <Tabs.Screen name="nueva-cita" options={{ title: 'Nueva cita' }} />
         <Tabs.Screen name="index" options={{ title: 'Sesiones' }} />
+        <Tabs.Screen name="calendario" options={{ title: 'Calendario' }} />
         <Tabs.Screen name="pacientes" options={{ title: 'Pacientes' }} />
         <Tabs.Screen name="pagos" options={{ title: 'Pagos' }} />
         <Tabs.Screen name="ajustes" options={{ title: 'Ajustes' }} />
