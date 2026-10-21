@@ -2,6 +2,7 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { BorradorFactura, Cita, EstadoCita, Paciente, Terapeuta } from '../domain/types.ts';
 import { esCobrable, numeroFactura, serieParaFecha } from '../domain/reglas.ts';
 import type { FacturaEmitida, IngresoSinFactura } from '../domain/trimestre.ts';
+import type { FacturaCompleta } from '../domain/pdf.ts';
 
 export function nuevoId(): string {
   const c = globalThis.crypto as Crypto | undefined;
@@ -164,6 +165,28 @@ export async function listarFacturasEmitidas(db: SQLiteDatabase, desde: string, 
       totalCentimos: f.total_centimos,
     };
   });
+}
+
+/** Facturas con sus líneas y los datos fiscales copiados al emitirlas, para el PDF del trimestre. */
+export async function listarFacturasCompletas(db: SQLiteDatabase, desde: string, hasta: string): Promise<FacturaCompleta[]> {
+  const filas = await db.getAllAsync<{
+    id: string; numero: string; fecha: string; periodo: string; emisor_json: string; receptor_json: string;
+    base_centimos: number; retencion_pct: number; retencion_centimos: number; total_centimos: number;
+  }>('SELECT * FROM facturas WHERE fecha BETWEEN ? AND ? ORDER BY numero', desde, hasta);
+  const res: FacturaCompleta[] = [];
+  for (const f of filas) {
+    const receptor = JSON.parse(f.receptor_json) as FacturaCompleta['receptor'];
+    const lineas = await db.getAllAsync<FacturaCompleta['lineas'][number]>(
+      `SELECT fecha, hora, duracion_min AS duracionMin, concepto, importe_centimos AS importeCentimos
+       FROM lineas_factura WHERE factura_id = ? ORDER BY fecha, hora`, f.id,
+    );
+    res.push({
+      numero: f.numero, fecha: f.fecha, periodo: f.periodo, clienteNombre: receptor.nombre, clienteNif: receptor.nif,
+      baseCentimos: f.base_centimos, retencionPct: f.retencion_pct, retencionCentimos: f.retencion_centimos,
+      totalCentimos: f.total_centimos, emisor: JSON.parse(f.emisor_json), receptor, lineas,
+    });
+  }
+  return res;
 }
 
 /** Sesiones cobradas en el periodo de pacientes a los que no se emite factura, agrupadas por paciente. */

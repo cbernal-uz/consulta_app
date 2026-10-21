@@ -1,8 +1,12 @@
 import { useCallback, useState } from 'react';
-import { ScrollView, Share, Text, View } from 'react-native';
+import { Alert, ScrollView, Share, Text, View } from 'react-native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { File, Paths } from 'expo-file-system';
 import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { listarFacturasEmitidas, listarIngresosSinFactura } from '../db/repo';
+import { listarFacturasCompletas, listarFacturasEmitidas, listarIngresosSinFactura } from '../db/repo';
+import { htmlFacturasTrimestre, nombreArchivoTrimestre } from '../domain/pdf';
 import { fechaCorta, formatoEuros, isoFecha } from '../domain/reglas';
 import { csvIngresosSinFactura, csvLibroFacturas, porCliente, rangoTrimestre, totalesTrimestre, trimestreDe, type FacturaEmitida, type IngresoSinFactura } from '../domain/trimestre';
 import { Boton, Chip, Tarjeta, estilos } from '../ui/componentes';
@@ -17,6 +21,7 @@ export default function Trimestre() {
   const [facturas, setFacturas] = useState<FacturaEmitida[]>([]);
   const [sinFactura, setSinFactura] = useState<IngresoSinFactura[]>([]);
   const [agrupar, setAgrupar] = useState(false);
+  const [generando, setGenerando] = useState(false);
 
   const cargar = useCallback(async () => {
     const { desde, hasta } = rangoTrimestre(anio, trimestre);
@@ -30,6 +35,24 @@ export default function Trimestre() {
     title: `Facturas ${trimestre}T ${anio}`,
     message: csvLibroFacturas(facturas),
   });
+
+  // Un solo PDF: portada con el libro del trimestre y una página por factura (solo facturas emitidas).
+  const enviarPdf = async () => {
+    setGenerando(true);
+    try {
+      const { desde, hasta } = rangoTrimestre(anio, trimestre);
+      const completas = await listarFacturasCompletas(db, desde, hasta);
+      const { uri } = await Print.printToFileAsync({ html: htmlFacturasTrimestre(completas, anio, trimestre) });
+      const destino = new File(Paths.cache, nombreArchivoTrimestre(anio, trimestre, completas[0]?.emisor.nombre ?? 'Consulta'));
+      if (destino.exists) destino.delete();
+      new File(uri).move(destino);
+      await Sharing.shareAsync(destino.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: `Facturas ${trimestre}T ${anio}` });
+    } catch (e) {
+      Alert.alert('No se pudo crear el PDF', String(e));
+    } finally {
+      setGenerando(false);
+    }
+  };
 
   return (
     <ScrollView style={estilos.pantalla} contentContainerStyle={estilos.contenido}>
@@ -46,7 +69,8 @@ export default function Trimestre() {
         <Text style={estilos.num}>Retenciones IRPF: {formatoEuros(t.retencion)}</Text>
         <Text style={[estilos.nombre, { fontSize: 17 }]}>Total facturado: {formatoEuros(t.total)}</Text>
       </Tarjeta>
-      <Boton titulo="Enviar a la gestoría" onPress={enviar} desactivado={facturas.length === 0} />
+      <Boton titulo={generando ? 'Creando PDF…' : 'PDF con todas las facturas'} onPress={enviarPdf} desactivado={facturas.length === 0 || generando} />
+      <Boton titulo="Libro de facturas (CSV)" secundario onPress={enviar} desactivado={facturas.length === 0} />
       {sinFactura.length > 0 && (
         <Tarjeta>
           <Text style={estilos.nombre}>Ingresos sin factura: {formatoEuros(sinFactura.reduce((s, i) => s + i.importeCentimos, 0))}</Text>

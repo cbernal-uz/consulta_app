@@ -42,3 +42,19 @@ test('agrupa las facturas por cliente con sus totales', () => {
   assert.equal(g[0].total, 48000);
   assert.equal(g[1].retencion, 5250);
 });
+
+test('el PDF del trimestre lleva portada y una página por factura, en orden', async () => {
+  const { htmlFacturasTrimestre, nombreArchivoTrimestre } = await import('../pdf.ts');
+  const emisor = { nombre: 'Teresa Lorente Casaus', nif: '00000000T', direccion: 'Paseo de Sagasta 72', colegiado: 'A-02051' };
+  const completa = (numero: string, nombre: string) => ({
+    ...f({ numero, clienteNombre: nombre }), periodo: '2026-09', emisor,
+    receptor: { nombre, nif: '11111111H', direccion: 'C/ Mayor 1', paciente: nombre, tipo: 'particular' as const },
+    lineas: [{ fecha: '2026-09-07', hora: '10:00', duracionMin: 50, concepto: 'Sesión de psicoterapia', importeCentimos: 24000 }],
+  });
+  const html = htmlFacturasTrimestre([completa('2026-012', 'B <Co>'), completa('2026-010', 'A')], 2026, 4);
+  assert.equal(html.match(/class="pagina"/g)?.length, 2);
+  assert.ok(html.indexOf('Nº <b>2026-010</b>') < html.indexOf('Nº <b>2026-012</b>'));
+  assert.match(html, /B &lt;Co&gt;/);
+  assert.match(html, /480,00 €/);
+  assert.equal(nombreArchivoTrimestre(2026, 4, 'Teresa Lorente Casaus'), 'Facturas 4T 2026 - Teresa Lorente Casaus.pdf');
+});
