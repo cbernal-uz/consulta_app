@@ -51,8 +51,8 @@ export async function leerTerapeuta(db: SQLiteDatabase): Promise<Terapeuta> {
 export async function guardarTerapeuta(db: SQLiteDatabase, t: Terapeuta): Promise<void> {
   await db.runAsync(
     `UPDATE terapeuta SET nombre = ?, nif = ?, direccion = ?, colegiado = ?, email = ?, serie_factura = ?,
-       siguiente_numero = ?, retencion_empresa_pct = ? WHERE id = 1`,
-    t.nombre, t.nif, t.direccion, t.colegiado, t.email, t.serieFactura, t.siguienteNumero, t.retencionEmpresaPct,
+       siguiente_numero = ?, retencion_empresa_pct = ?, updated_at = ? WHERE id = 1`,
+    t.nombre, t.nif, t.direccion, t.colegiado, t.email, t.serieFactura, t.siguienteNumero, t.retencionEmpresaPct, ahora(),
   );
 }
 
@@ -141,13 +141,13 @@ export async function emitirFactura(db: SQLiteDatabase, b: BorradorFactura, paci
     );
     for (const l of b.lineas) {
       await db.runAsync(
-        `INSERT INTO lineas_factura (id, factura_id, cita_id, fecha, hora, duracion_min, concepto, importe_centimos)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        nuevoId(), id, l.citaId, l.fecha, l.hora, l.duracionMin, l.concepto, l.importeCentimos,
+        `INSERT INTO lineas_factura (id, factura_id, cita_id, fecha, hora, duracion_min, concepto, importe_centimos, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        nuevoId(), id, l.citaId, l.fecha, l.hora, l.duracionMin, l.concepto, l.importeCentimos, ahora(),
       );
       await db.runAsync('UPDATE citas SET factura_id = ?, updated_at = ? WHERE id = ?', id, ahora(), l.citaId);
     }
-    await db.runAsync('UPDATE terapeuta SET serie_factura = ?, siguiente_numero = ? WHERE id = 1', serie, siguiente + 1);
+    await db.runAsync('UPDATE terapeuta SET serie_factura = ?, siguiente_numero = ?, updated_at = ? WHERE id = 1', serie, siguiente + 1, ahora());
   });
   return numero;
 }

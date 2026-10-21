@@ -58,4 +58,24 @@ Para actualizar, repite el paso 2 e instala el nuevo APK encima. Los datos se co
 
 ## Dónde se guardan los datos
 
-En la propia tablet, en una base de datos SQLite (`consulta.db`) dentro del espacio privado de la app. Ninguna otra app puede leerla y no sale del dispositivo. Por ahora no hay copia de seguridad ni sincronización: llegarán con Supabase en una próxima versión.
+En cada tablet, en una base de datos SQLite (`consulta.db`) dentro del espacio privado de la app. Si se configura Supabase, se copian también en vuestro proyecto de Supabase, que es lo que mantiene las dos tablets iguales.
+
+## Sincronizar las tablets con Supabase (gratis)
+
+1. Entra en https://supabase.com y crea un proyecto nuevo. En la región elige una de Europa, por ejemplo Frankfurt, y guarda la contraseña de la base de datos.
+2. En **SQL Editor**, pega el contenido de [`supabase/esquema.sql`](supabase/esquema.sql) y pulsa **Run**.
+3. En **Authentication › Users › Add user › Create new user**, crea la cuenta de la consulta con email y contraseña y marca *Auto Confirm User*.
+4. En **Authentication › Sign In / Providers**, desactiva *Allow new users to sign up* para que nadie más pueda crear cuentas.
+5. En **Project Settings › API**, copia la *Project URL* y la clave pública (*anon* o *publishable*). No uses la *service_role* ni la *secret*.
+6. En cada tablet: **Ajustes › Sincronización entre tablets**, rellena los cuatro campos y pulsa **Conectar y sincronizar**.
+
+A partir de ahí la app sincroniza sola cada dos minutos y al abrirla o cerrarla. Si la misma sesión se cambia en las dos tablets, se queda el cambio más reciente. Cada fila solo la puede ver la cuenta que la creó.
+
+- Emite las facturas siempre desde la misma tablet, o sincroniza justo antes, para que dos tablets sin conexión no den el mismo número a dos facturas.
+- El plan gratuito de Supabase pausa el proyecto tras una semana sin uso. Se reactiva desde el panel de Supabase.
+
+## Copia de seguridad en Google Drive
+
+**Ajustes › Copia de seguridad › Guardar copia en Google Drive** crea un archivo `Consulta copia AAAA-MM-DD HHMM.json` con todos los datos y abre el menú de compartir. Ahí se elige Drive y la carpeta. La app avisa si pasa más de una semana sin copia.
+
+**Restaurar una copia** permite elegir el archivo, también desde Drive, y muestra cuántos pacientes, sesiones y facturas contiene antes de sustituir los datos. Lo restaurado se envía a la otra tablet en la siguiente sincronización.
