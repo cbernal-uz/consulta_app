@@ -41,3 +41,21 @@ Estructura:
 - `src/ui/`: componentes y colores compartidos.
 
 Los importes se guardan en céntimos.
+
+## Instalar en Android
+
+1. Crea una cuenta gratuita en https://expo.dev.
+2. En un ordenador con Node instalado, dentro de esta carpeta:
+   ```sh
+   npm install --legacy-peer-deps
+   npx eas-cli login
+   npx eas-cli build --platform android --profile preview
+   ```
+   La primera vez pregunta si crea el proyecto en Expo y la clave de firma: responde que sí a ambas.
+3. Al terminar (unos 10-20 minutos), Expo muestra un enlace y un código QR. Ábrelo en la tablet, descarga el APK y acepta instalar apps de origen desconocido.
+
+Para actualizar, repite el paso 2 e instala el nuevo APK encima. Los datos se conservan al actualizar, pero **se borran si se desinstala la app**.
+
+## Dónde se guardan los datos
+
+En la propia tablet, en una base de datos SQLite (`consulta.db`) dentro del espacio privado de la app. Ninguna otra app puede leerla y no sale del dispositivo. Por ahora no hay copia de seguridad ni sincronización: llegarán con Supabase en una próxima versión.
