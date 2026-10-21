@@ -4,7 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { listarFacturasEmitidas, listarIngresosSinFactura } from '../db/repo';
 import { fechaCorta, formatoEuros, isoFecha } from '../domain/reglas';
-import { csvLibroFacturas, porCliente, rangoTrimestre, totalesTrimestre, trimestreDe, type FacturaEmitida, type IngresoSinFactura } from '../domain/trimestre';
+import { csvIngresosSinFactura, csvLibroFacturas, porCliente, rangoTrimestre, totalesTrimestre, trimestreDe, type FacturaEmitida, type IngresoSinFactura } from '../domain/trimestre';
 import { Boton, Chip, Tarjeta, estilos } from '../ui/componentes';
 
 type T = 1 | 2 | 3 | 4;
@@ -28,7 +28,7 @@ export default function Trimestre() {
   const t = totalesTrimestre(facturas);
   const enviar = () => Share.share({
     title: `Facturas ${trimestre}T ${anio}`,
-    message: csvLibroFacturas(facturas, sinFactura),
+    message: csvLibroFacturas(facturas),
   });
 
   return (
@@ -46,12 +46,13 @@ export default function Trimestre() {
         <Text style={estilos.num}>Retenciones IRPF: {formatoEuros(t.retencion)}</Text>
         <Text style={[estilos.nombre, { fontSize: 17 }]}>Total facturado: {formatoEuros(t.total)}</Text>
       </Tarjeta>
-      <Boton titulo="Enviar a la gestoría" onPress={enviar} desactivado={facturas.length === 0 && sinFactura.length === 0} />
+      <Boton titulo="Enviar a la gestoría" onPress={enviar} desactivado={facturas.length === 0} />
       {sinFactura.length > 0 && (
         <Tarjeta>
           <Text style={estilos.nombre}>Ingresos sin factura: {formatoEuros(sinFactura.reduce((s, i) => s + i.importeCentimos, 0))}</Text>
           {sinFactura.map(i => <Text key={i.paciente} style={estilos.meta}>{i.paciente} · {i.sesiones} sesiones · {formatoEuros(i.importeCentimos)}</Text>)}
-          <Text style={estilos.meta}>Se incluyen en el archivo para el gestor.</Text>
+          <Text style={estilos.meta}>No van en el archivo de facturas. Envíalos aparte al gestor para que los declare.</Text>
+          <Boton titulo="Enviar ingresos sin factura" secundario onPress={() => Share.share({ title: `Ingresos sin factura ${trimestre}T ${anio}`, message: csvIngresosSinFactura(sinFactura) })} />
         </Tarjeta>
       )}
       {facturas.length === 0 && <Text style={estilos.sub}>No hay facturas emitidas en este trimestre.</Text>}

@@ -51,7 +51,7 @@ export default function Pacientes() {
         <Campo etiqueta="NIF / CIF" value={editando.fiscal.nif} onChangeText={nif => cambiarFiscal({ nif })} autoCapitalize="characters" />
         <Campo etiqueta="Dirección fiscal" value={editando.fiscal.direccion} onChangeText={direccion => cambiarFiscal({ direccion })} />
         <Casilla texto="No se emite factura" marcada={editando.sinFactura} onCambio={sinFactura => cambiar({ sinFactura })} />
-        {editando.sinFactura && <Text style={estilos.meta}>No se le generan facturas. Sus sesiones cobradas aparecen en Pagos › Trimestre como ingresos sin factura, para que el gestor las declare.</Text>}
+        {editando.sinFactura && <Text style={estilos.meta}>No se le generan facturas. Sus cobros cuentan en el resumen y aparecen en Pagos › Trimestre como ingresos sin factura, en un archivo aparte para el gestor.</Text>}
         <View style={estilos.fila}>
           <Chip texto={editando.activo ? 'Activo' : 'De baja'} activo onPress={() => cambiar({ activo: !editando.activo })} tono={editando.activo ? 'ok' : 'mal'} />
         </View>

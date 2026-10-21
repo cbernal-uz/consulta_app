@@ -1,7 +1,7 @@
 /// <reference types="node" />
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { csvLibroFacturas, porCliente, rangoTrimestre, trimestreDe, type FacturaEmitida } from '../trimestre.ts';
+import { csvIngresosSinFactura, csvLibroFacturas, porCliente, rangoTrimestre, trimestreDe, type FacturaEmitida } from '../trimestre.ts';
 
 const f = (over: Partial<FacturaEmitida>): FacturaEmitida => ({
   numero: '2026-001', fecha: '2026-10-01', clienteNombre: 'Lucía Martín', clienteNif: '11111111H',
@@ -25,9 +25,10 @@ test('el CSV ordena por número, usa coma decimal y suma totales', () => {
   assert.equal(csv[3], 'TOTAL;;;;590,00;;0,00;;52,50;537,50');
 });
 
-test('el CSV añade los ingresos sin factura con su total', () => {
-  const csv = csvLibroFacturas([f({})], [{ paciente: 'Pablo Navarro', sesiones: 3, importeCentimos: 18000 }]).split('\r\n');
-  assert.deepEqual(csv.slice(-4), ['Ingresos sin factura', 'Paciente;Sesiones;Importe', 'Pablo Navarro;3;180,00', 'TOTAL;3;180,00']);
+test('los ingresos sin factura van en un archivo aparte con su total', () => {
+  const csv = csvIngresosSinFactura([{ paciente: 'Pablo Navarro', sesiones: 3, importeCentimos: 18000 }]).split('\r\n');
+  assert.deepEqual(csv, ['Paciente;Sesiones;Importe', 'Pablo Navarro;3;180,00', 'TOTAL;3;180,00']);
+  assert.doesNotMatch(csvLibroFacturas([f({})]), /sin factura/i);
 });
 
 test('agrupa las facturas por cliente con sus totales', () => {
